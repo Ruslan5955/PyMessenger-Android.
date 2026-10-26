@@ -1,7 +1,23 @@
-// Подключаем плагин Android приложения
-plugins {
-    id 'com.android.application' version '8.1.1'
+buildscript {
+    repositories {
+        google()
+        mavenCentral()
+    }
+    dependencies {
+        // Подключаем стабильную версию плагина сборщика Android
+        classpath 'com.android.tools.build:gradle:8.1.1'
+    }
 }
+
+allprojects {
+    repositories {
+        google()
+        mavenCentral()
+    }
+}
+
+// Применяем плагин приложения
+apply plugin: 'com.android.application'
 
 android {
     namespace 'com.messenger.pro'
@@ -15,10 +31,13 @@ android {
         versionName "1.0"
     }
 
+    // Принудительно заставляем Gradle брать только наш манифест и код
     sourceSets {
         main {
             manifest.srcFile 'android/app/src/main/AndroidManifest.xml'
             java.srcDirs = ['android/app/src/main/java']
+            res.srcDirs = []
+            assets.srcDirs = []
         }
     }
 }
