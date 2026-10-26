@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Профиль — PyMessenger</title><link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}"></head>
+<body class="auth-body">
+<div class="profile-shell">
+  <a href="{{ url_for('messenger') }}" class="back-link">← Вернуться в чаты</a>
+  <div class="profile-card"><div class="profile-top"><div class="avatar profile-avatar">{% if user.avatar %}<img src="{{ url_for('uploaded_avatar', filename=user.avatar) }}">{% else %}{{ user.display_name[:1]|upper }}{% endif %}</div><div><h1>Твой профиль</h1><p class="muted">@{{ user.username }}</p></div></div>
+  {% with messages = get_flashed_messages(with_categories=true) %}{% for category, message in messages %}<div class="notice {{ category }}">{{ message }}</div>{% endfor %}{% endwith %}
+  <form method="post" enctype="multipart/form-data">
+    <label>Отображаемое имя<input name="display_name" maxlength="40" required value="{{ user.display_name }}"></label>
+    <label>О себе<textarea name="bio" maxlength="240" rows="3" placeholder="Пара слов о себе">{{ user.bio }}</textarea></label>
+    <label>Аватарка<input type="file" name="avatar" accept=".png,.jpg,.jpeg,.webp,.gif"></label>
+    <button class="primary full" type="submit">Сохранить профиль</button>
+  </form>
+  <form method="post" action="{{ url_for('logout') }}"><button class="secondary full" type="submit">Выйти из аккаунта</button></form>
+  <p class="small muted">Аккаунт создан: {{ user.created_at[:10] }}</p>
+  </div>
+</div></body></html>
