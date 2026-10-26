@@ -41,8 +41,14 @@ def db():
 
 def init_db():
     with db() as con:
-        # Принудительно очищаем старую структуру, чтобы применилась колонка phone
+        # Отключаем проверку связей и очищаем таблицы для применения колонки phone
+        con.execute("PRAGMA foreign_keys = OFF")
+        con.execute("DROP TABLE IF EXISTS chat_members;")
+        con.execute("DROP TABLE IF EXISTS messages;")
+        con.execute("DROP TABLE IF EXISTS chats;")
         con.execute("DROP TABLE IF EXISTS users;")
+        con.execute("PRAGMA foreign_keys = ON")
+        
         con.executescript("""
         CREATE TABLE IF NOT EXISTS users (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -252,13 +258,11 @@ def upload_avatar():
         if file and allowed(file.filename, ALLOWED_AVATARS):
             ext = file.filename.rsplit(".", 1).lower()
             filename = f"user_{user['id']}_{uuid.uuid4().hex[:8]}.{ext}"
-            file.save(str(AVATAR_DIR / filename))
-            db().execute("UPDATE users SET avatar = ? WHERE id = ?", (filename, user["id"])).close()
-            flash("Аватарка успешно обновлена!", "success")
-    return redirect(url_for("index"))
-
-
-if __name__ == "__main__":
-    init_db()
-    port = int(os.environ.get("PORT", 5000))
-    app.run(host="0.0.0.0", port=port, debug=True)
+file.save(str(AVATAR_DIR / filename))
+db().execute("UPDATE users SET avatar = ? WHERE id = ?", (filename, user["id"])).close()
+flash("Аватарка успешно обновлена!", "success")
+return redirect(url_for("index"))
+if name == "main":
+init_db()
+port = int(os.environ.get("PORT", 5000))
+app.run(host="0.0.0.0", port=port, debug=True)
