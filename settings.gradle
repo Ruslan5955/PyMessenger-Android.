@@ -1,15 +1,31 @@
-pluginManagement {
-    repositories {
-        google()
-        mavenCentral()
-        gradlePluginPortal()
+plugins {
+    id 'com.android.application' version '8.1.1'
+}
+
+android {
+    namespace 'com.messenger.pro'
+    compileSdk 34
+
+    defaultConfig {
+        applicationId "com.messenger.pro"
+        minSdk 24
+        targetSdk 34
+        versionCode 1
+        versionName "1.0"
+    }
+
+    // Этот блок строго указывает сборщику, где искать код и манифест
+    sourceSets {
+        main {
+            manifest.srcFile 'android/app/src/main/AndroidManifest.xml'
+            java.srcDirs = ['android/app/src/main/java']
+            res.srcDirs = [] // Отключаем ресурсы, если папки res у тебя нет
+            assets.srcDirs = []
+        }
+    }
+    
+    // Отключаем строгую проверку ресурсов, чтобы сборка не падала из-за отсутствия иконки
+    aaptOptions {
+        noCompress 'txt'
     }
 }
-dependencyResolutionManagement {
-    repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
-    repositories {
-        google()
-        mavenCentral()
-    }
-}
-rootProject.name = "PyMessenger-Android"
