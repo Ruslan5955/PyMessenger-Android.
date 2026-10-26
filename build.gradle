@@ -32,12 +32,11 @@ android {
     }
 
     // Принудительно заставляем Gradle брать только наш манифест и код
-    sourceSets {
+        sourceSets {
         main {
             manifest.srcFile 'android/app/src/main/AndroidManifest.xml'
             java.srcDirs = ['android/app/src/main/java']
-            res.srcDirs = []
+            res.srcDirs = ['android/app/src/main/res'] // Теперь указываем на папку со строками
             assets.srcDirs = []
         }
     }
-}
