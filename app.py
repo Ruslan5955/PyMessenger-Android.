@@ -216,9 +216,10 @@ def logout():
 def messenger():
     user = current_user()
     with db() as con:
-        chat_ids = [r["chat_id"] for r in con.execute(
-            "SELECT chat_id FROM chat_members WHERE user_id=?", (user["id"],)).fetchall()]
+              rows = con.execute("SELECT chat_id FROM chat_members WHERE user_id=?", (user["id"],)).fetchall()
+        chat_ids = [r[0] for r in rows if r is not None]
         chats = [chat_summary(con, cid, user["id"]) for cid in chat_ids]
+
     chats = [c for c in chats if c]
     chats.sort(key=lambda c: c["id"], reverse=True)
     selected = request.args.get("chat", type=int)
