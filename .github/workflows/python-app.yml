@@ -1,14 +1,4 @@
 name: Build PyMessenger APK
-on:
-workflow_dispatch:
-jobs:
-build:
-runs-on: ubuntu-latest
-steps:
-- name: Download repository
-uses: actions/checkout@v4
-- name: Check project files
-run:
-echo "Checking repository..."
-ls -la
-echo "Check completed"
+on: workflow_dispatch:.
+jobs: build: runs-on: ubuntu-latest.
+steps: - uses: actions/checkout@v4 - name: Check files,
