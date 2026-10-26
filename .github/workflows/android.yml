@@ -1,7 +1,7 @@
 name: Build Android APK
 
 on:
-  workflow_dispatch: # Это добавит кнопку ручного запуска
+  workflow_dispatch:
 
 jobs:
   build:
@@ -17,19 +17,8 @@ jobs:
         java-version: '17'
         distribution: 'temurin'
 
-    # Создаем пустой рабочий каркас для Gradle, чтобы он не выдавал ошибку отсутствия wrapper
-    - name: Initialize Gradle Wrapper
-      run: |
-        gradle wrapper --gradle-version 8.1.1
-        chmod +x gradlew
-
-    # Команда сборки APK
-    - name: Build with Gradle
-      run: ./gradlew assembleDebug
-
-    # Вытаскиваем готовый APK, чтобы ты мог его скачать
-    - name: Upload APK Artifact
-      uses: actions/upload-artifact@v4
+    # Используем готовое действие для автоматической сборки без ручного вызова gradlew wrapper
+    - name: Gradle Build Action
+      uses: gradle/gradle-build-action@v3
       with:
-        name: PyMessenger-APK
-        path: "**/build/outputs/apk/debug/*.apk"
+        arguments: assembleDebug
