@@ -22,6 +22,6 @@ public class MainActivity extends Activity {
 
         // ВАЖНО: Замени эту ссылку на адрес своего запущенного Flask-сервера!
         // Если сервера в интернете пока нет, можно временно оставить эту
-        webView.loadUrl("https://google.com"); 
+       webView.loadUrl("https://pymessenger-android.onrender.com/");
     }
 }
