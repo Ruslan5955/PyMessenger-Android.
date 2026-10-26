@@ -1,17 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://android.com">
+<manifest xmlns:android="http://android.com"
+    package="com.messenger.pro">
 
-    <!-- Разрешение на использование интернета -->
     <uses-permission android:name="android.permission.INTERNET" />
 
     <application
         android:label="PyMessenger Pro"
-        android:theme="@android:style/Theme.NoTitleBar.Fullscreen"
         android:usesCleartextTraffic="true">
         
-        <!-- Главное окно приложения -->
         <activity 
-            android:name=".MainActivity" 
+            android:name="com.messenger.pro.MainActivity" 
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
