@@ -216,15 +216,13 @@ def logout():
 def messenger():
     user = current_user()
     with db() as con:
-                        chats = [chat_summary(con, r[0], user["id"]) for r in con.execute("SELECT chat_id FROM chat_members WHERE user_id=?", (user["id"],)).fetchall() if r and r[0] is not None]
-
-        chats = [chat_summary(con, cid, user["id"]) for cid in chat_ids]
-
-            for r in rows:
-                if r and len(r) > 0 and r[0] is not None:
-                    chat_ids.append(r[0])
-                    
-        chats = [chat_summary(con, cid, user["id"]) for cid in chat_ids if cid is not None]
+        rows = con.execute("SELECT chat_id FROM chat_members WHERE user_id=?", (user["id"],)).fetchall()
+        chats = [chat_summary(con, r[0], user["id"]) for r in rows if r and r[0] is not None]
+        chats.sort(key=lambda x: x["id"], reverse=True)
+        selected = request.args.get("chat", type=int)
+        if selected not in [c["id"] for c in chats]:
+            selected = chats[0]["id"] if chats else None
+        return render_template("messenger.html", user=user, chats=chats, selected_chat=selected)
 
 
     chats = [c for c in chats if c]
