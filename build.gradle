@@ -1,22 +1,7 @@
-buildscript {
-    repositories {
-        google()
-        mavenCentral()
-    }
-    dependencies {
-        classpath 'com.android.tools.build:gradle:8.1.1'
-    }
+// Подключаем плагин Android приложения
+plugins {
+    id 'com.android.application' version '8.1.1'
 }
-
-allprojects {
-    repositories {
-        google()
-        mavenCentral()
-    }
-}
-
-// Добавляем обязательные настройки самого приложения для сборщика
-apply plugin: 'com.android.application'
 
 android {
     namespace 'com.messenger.pro'
