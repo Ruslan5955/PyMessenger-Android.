@@ -247,29 +247,18 @@ def login():
 
 @app.route("/logout")
 def logout():
-    session.clear()
-    return redirect(url_for("login"))
-
-
-@app.route("/upload_avatar", methods=["POST"])
+   @app.route("/upload_avatar", methods=["POST"])
 @login_required
 def upload_avatar():
     user = current_user()
-    if "avatar" not in request.files:
-        flash("Файл не выбран", "error")
-        return redirect(url_for("index"))
-    
-    file = request.files["avatar"]
-    if file and allowed(file.filename, ALLOWED_AVATARS):
-        ext = file.filename.rsplit(".", 1).lower()
-filename = f"user_{user['id']}_{uuid.uuid4().hex[:8]}.{ext}"
-file.save(str(AVATAR_DIR / filename))
-with db() as con:
-con.execute("UPDATE users SET avatar = ? WHERE id = ?", (filename, user["id"]))
-flash("Аватарка успешно обновлена!", "success")
-else:
-flash("Недопустимый формат файла", "error")
-return redirect(url_for("index"))
-if name == "main":
-init_db()
+    if "avatar" in request.files:
+        file = request.files["avatar"]
+        if file and allowed(file.filename, ALLOWED_AVATARS):
+            ext = file.filename.rsplit(".", 1)[1].lower()
+            filename = f"user_{user['id']}_{uuid.uuid4().hex[:8]}.{ext}"
+            file.save(str(AVATAR_DIR / filename))
+            db().execute("UPDATE users SET avatar = ? WHERE id = ?", (filename, user["id"])).close()
+            flash("Аватарка успешно обновлена!", "success")
+    return redirect(url_for("index"))
+
 app.run(debug=True)
