@@ -41,6 +41,8 @@ def db():
 
 def init_db():
     with db() as con:
+        # Принудительно очищаем старую структуру, чтобы применилась колонка phone
+        con.execute("DROP TABLE IF EXISTS users;")
         con.executescript("""
         CREATE TABLE IF NOT EXISTS users (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -83,11 +85,6 @@ def init_db():
         CREATE INDEX IF NOT EXISTS idx_messages_chat_id ON messages(chat_id, id);
         CREATE INDEX IF NOT EXISTS idx_members_user_id ON chat_members(user_id);
         """)
-        
-        try:
-            con.execute("ALTER TABLE users ADD COLUMN phone TEXT UNIQUE")
-        except sqlite3.OperationalError:
-            pass
 
 
 def now_iso():
@@ -253,7 +250,7 @@ def upload_avatar():
     if "avatar" in request.files:
         file = request.files["avatar"]
         if file and allowed(file.filename, ALLOWED_AVATARS):
-            ext = file.filename.rsplit(".", 1)[1].lower()
+            ext = file.filename.rsplit(".", 1).lower()
             filename = f"user_{user['id']}_{uuid.uuid4().hex[:8]}.{ext}"
             file.save(str(AVATAR_DIR / filename))
             db().execute("UPDATE users SET avatar = ? WHERE id = ?", (filename, user["id"])).close()
@@ -263,6 +260,5 @@ def upload_avatar():
 
 if __name__ == "__main__":
     init_db()
-    # Считываем порт, который дает Render, и открываем доступ для 0.0.0.0
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port, debug=True)
