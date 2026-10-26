@@ -41,7 +41,6 @@ def db():
 
 def init_db():
     with db() as con:
-        # Добавляем таблицу пользователей с полем phone
         con.executescript("""
         CREATE TABLE IF NOT EXISTS users (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -85,7 +84,6 @@ def init_db():
         CREATE INDEX IF NOT EXISTS idx_members_user_id ON chat_members(user_id);
         """)
         
-        # Миграция: если база данных старая и колонки phone нет, добавляем её безопасно
         try:
             con.execute("ALTER TABLE users ADD COLUMN phone TEXT UNIQUE")
         except sqlite3.OperationalError:
@@ -163,7 +161,6 @@ def chat_summary(con, chat_id, user_id):
     }
 
 
-# ГЛАВНАЯ СТРАНИЦА ИНТЕРФЕЙСА WHATSAPP
 @app.route("/")
 @login_required
 def index():
@@ -187,7 +184,6 @@ def messenger():
     return redirect(url_for("index"))
 
 
-# РЕГИСТРАЦИЯ ПО НОМЕРУ ТЕЛЕФОНА (БЕЗ SMS-КОДА)
 @app.route("/register", methods=["GET", "POST"])
 def register():
     if request.method == "POST":
@@ -195,7 +191,6 @@ def register():
         display_name = request.form.get("display_name", "").strip()
         password = request.form.get("password", "")
         
-        # Очищаем номер от лишних символов (оставляем только цифры и плюс)
         clean_phone = re.sub(r"[^\d+]", "", phone)
         
         if len(clean_phone) < 10:
@@ -213,7 +208,6 @@ def register():
                     )
                     user_id = cur.lastrowid
                     
-                    # Создаем чат "Избранное"
                     cur = con.execute("INSERT INTO chats(title,is_group,created_by,created_at) VALUES(?,1,?,?)",
                                       ("Избранное", user_id, now_iso()))
                     con.execute("INSERT INTO chat_members(chat_id,user_id,joined_at) VALUES(?,?,?)",
@@ -227,7 +221,6 @@ def register():
     return render_template("auth.html", mode="register")
 
 
-# ВХОД ПО НОМЕРУ ТЕЛЕФОНА
 @app.route("/login", methods=["GET", "POST"])
 def login():
     if request.method == "POST":
@@ -252,7 +245,6 @@ def logout():
     return redirect(url_for("login"))
 
 
-# РОУТ ДЛЯ ЗАГРУЗКИ АВАТАРКИ (ВЫРОВНЕН К КРАЮ ДЛЯ ИСКЛЮЧЕНИЯ ОШИБОК С ОТСТУПАМИ)
 @app.route("/upload_avatar", methods=["POST"])
 def upload_avatar():
     if not session.get("user_id"):
@@ -260,3 +252,15 @@ def upload_avatar():
     user = current_user()
     if "avatar" in request.files:
         file = request.files["avatar"]
+        if file and allowed(file.filename, ALLOWED_AVATARS):
+            ext = file.filename.rsplit(".", 1)[1].lower()
+            filename = f"user_{user['id']}_{uuid.uuid4().hex[:8]}.{ext}"
+            file.save(str(AVATAR_DIR / filename))
+            db().execute("UPDATE users SET avatar = ? WHERE id = ?", (filename, user["id"])).close()
+            flash("Аватарка успешно обновлена!", "success")
+    return redirect(url_for("index"))
+
+
+if __name__ == "__main__":
+    init_db()
+    app.run(debug=True)
