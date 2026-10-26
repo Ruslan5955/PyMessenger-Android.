@@ -6,7 +6,6 @@
 
     <application
         android:label="PyMessenger"
-        android:icon="@mipmap/ic_launcher"
         android:allowBackup="true"
         android:usesCleartextTraffic="true">
 
