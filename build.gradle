@@ -1,7 +1,39 @@
 buildscript {
-    repositories { google(); mavenCentral() }
-    dependencies { classpath 'com.android.tools.build:gradle:8.1.1' }
+    repositories {
+        google()
+        mavenCentral()
+    }
+    dependencies {
+        classpath 'com.android.tools.build:gradle:8.1.1'
+    }
 }
+
 allprojects {
-    repositories { google(); mavenCentral() }
+    repositories {
+        google()
+        mavenCentral()
+    }
+}
+
+// Добавляем обязательные настройки самого приложения для сборщика
+apply plugin: 'com.android.application'
+
+android {
+    namespace 'com.messenger.pro'
+    compileSdk 34
+
+    defaultConfig {
+        applicationId "com.messenger.pro"
+        minSdk 24
+        targetSdk 34
+        versionCode 1
+        versionName "1.0"
+    }
+
+    sourceSets {
+        main {
+            manifest.srcFile 'android/app/src/main/AndroidManifest.xml'
+            java.srcDirs = ['android/app/src/main/java']
+        }
+    }
 }
