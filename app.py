@@ -216,8 +216,8 @@ def logout():
 def messenger():
     user = current_user()
     with db() as con:
-                    rows = con.execute("SELECT chat_id FROM chat_members WHERE user_id=?", (user["id"],)).fetchall()
-        chat_ids = [r[0] for r in rows if r and r[0] is not None]
+                        chats = [chat_summary(con, r[0], user["id"]) for r in con.execute("SELECT chat_id FROM chat_members WHERE user_id=?", (user["id"],)).fetchall() if r and r[0] is not None]
+
         chats = [chat_summary(con, cid, user["id"]) for cid in chat_ids]
 
             for r in rows:
