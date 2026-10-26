@@ -4,7 +4,6 @@ buildscript {
         mavenCentral()
     }
     dependencies {
-        // Подключаем стабильную версию плагина сборщика Android
         classpath 'com.android.tools.build:gradle:8.1.1'
     }
 }
@@ -16,7 +15,6 @@ allprojects {
     }
 }
 
-// Применяем плагин приложения
 apply plugin: 'com.android.application'
 
 android {
@@ -31,12 +29,12 @@ android {
         versionName "1.0"
     }
 
-    // Принудительно заставляем Gradle брать только наш манифест и код
-        sourceSets {
+    sourceSets {
         main {
             manifest.srcFile 'android/app/src/main/AndroidManifest.xml'
             java.srcDirs = ['android/app/src/main/java']
-            res.srcDirs = ['android/app/src/main/res'] // Теперь указываем на папку со строками
+            res.srcDirs = ['android/app/src/main/res']
             assets.srcDirs = []
         }
     }
+}
