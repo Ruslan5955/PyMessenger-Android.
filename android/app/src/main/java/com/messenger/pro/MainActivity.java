@@ -37,6 +37,6 @@ public class MainActivity extends Activity {
                 Manifest.permission.CAMERA
         }, 1);
 
-        webView.loadUrl("https://АДРЕС-ТВОЕГО-СЕРВЕРА");
+        webView.loadUrl("https://pymessenger-android.onrender.com/");
     }
 }
