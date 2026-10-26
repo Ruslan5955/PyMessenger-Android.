@@ -1,18 +1,47 @@
 <!doctype html>
-<html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>PyMessenger</title><link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}"></head>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>PyMessenger</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
 <body class="auth-body">
 <div class="auth-shell">
-  <div class="brand-mark">✦</div><h1>PyMessenger</h1><p class="muted">Твои сообщения. Твои люди.</p>
+  <div class="brand-mark">✦</div>
+  <h1>PyMessenger</h1>
+  <p class="muted">Твои сообщения. Твои люди.</p>
   <div class="auth-card">
-    <div class="auth-tabs"><a class="{{ 'active' if mode == 'login' else '' }}" href="{{ url_for('login') }}">Войти</a><a class="{{ 'active' if mode == 'register' else '' }}" href="{{ url_for('register') }}">Создать аккаунт</a></div>
-    {% with messages = get_flashed_messages(with_categories=true) %}{% for category, message in messages %}<div class="notice {{ category }}">{{ message }}</div>{% endfor %}{% endwith %}
+    <div class="auth-tabs">
+      <a class="{{ 'active' if mode == 'login' else '' }}" href="{{ url_for('login') }}">Войти</a>
+      <a class="{{ 'active' if mode == 'register' else '' }}" href="{{ url_for('register') }}">Создать аккаунт</a>
+    </div>
+    
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% for category, message in messages %}
+        <div class="notice {{ category }}">{{ message }}</div>
+      {% endfor %}
+    {% endwith %}
+    
     <form method="post">
-      {% if mode == 'register' %}<label>Как тебя называть<input name="display_name" maxlength="40" required placeholder="Например, Рома"></label>{% endif %}
-      <label>Логин<input name="username" minlength="3" maxlength="24" required autocomplete="username" placeholder="username"></label>
-      <label>Пароль<input name="password" type="password" minlength="{{ 8 if mode == 'register' else 1 }}" required autocomplete="{{ 'new-password' if mode == 'register' else 'current-password' }}" placeholder="Минимум 8 символов"></label>
+      {% if mode == 'register' %}
+        <label>Как тебя называть
+          <input name="display_name" maxlength="40" required placeholder="Например, Рома">
+        </label>
+      {% endif %}
+      
+      <label>Номер телефона
+        <input type="tel" name="phone" required autocomplete="tel" placeholder="+7 (999) 123-45-67">
+      </label>
+      
+      <label>Пароль
+        <input name="password" type="password" minlength="{{ 8 if mode == 'register' else 1 }}" required autocomplete="{{ 'new-password' if mode == 'register' else 'current-password' }}" placeholder="Минимум 8 символов">
+      </label>
+      
       <button class="primary full" type="submit">{{ 'Создать аккаунт' if mode == 'register' else 'Войти в мессенджер' }}</button>
     </form>
     <p class="small muted">Пароли хранятся в виде хеша, а не обычным текстом.</p>
   </div>
-</div></body></html>
+</div>
+</body>
+</html>
