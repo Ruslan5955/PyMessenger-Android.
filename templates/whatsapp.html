@@ -1,0 +1,127 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="app-container">
+    <!-- Боковая панель переключения вкладок (в стиле Telegram/WhatsApp) -->
+    <div class="side-navigation">
+        <div class="nav-item active" onclick="switchTab('chats-tab')">💬<span>Чаты</span></div>
+        <div class="nav-item" onclick="switchTab('spotify-tab')">🎵<span>Музыка</span></div>
+        <div class="nav-item" onclick="switchTab('settings-tab')">⚙️<span>Профиль</span></div>
+    </div>
+
+    <!-- Основная рабочая область -->
+    <div class="main-content">
+        
+        <!-- ВКЛАДКА 1: ЧАТЫ -->
+        <div id="chats-tab" class="tab-pane active-pane">
+            <div class="chats-window">
+                <div class="chats-sidebar">
+                    <div class="sidebar-header">
+                        <h3>Чаты</h3>
+                    </div>
+                    <div class="chats-list">
+                        {% for chat in chats %}
+                        <div class="chat-card">
+                            <div class="chat-avatar">👥</div>
+                            <div class="chat-info">
+                                <h4>{{ chat.name }}</h4>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+                <div class="chat-area">
+                    <div class="chat-header">
+                        <h4>Выберите чат для общения</h4>
+                        <!-- Кнопка звонка -->
+                        <button class="call-btn" onclick="startCall()">📞 Позвонить</button>
+                    </div>
+                    <div class="messages-container" id="call-box">
+                        <p class="placeholder-text">Здесь будут сообщения и управление звонками...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ВКЛАДКА 2: SPOTIFY -->
+        <div id="spotify-tab" class="tab-pane">
+            <div class="spotify-window">
+                <h3>Встроенный плеер Spotify</h3>
+                <iframe src="https://spotify.com{{ spotify_id }}" 
+                        width="100%" height="450" frameborder="0" allowtransparency="true" 
+                        allow="encrypted-media; clipboard-write; picture-in-picture"></iframe>
+            </div>
+        </div>
+
+        <!-- ВКЛАДКА 3: НАСТРОЙКИ И АВАТАРКА -->
+        <div id="settings-tab" class="tab-pane">
+            <div class="settings-window">
+                <h3>Настройки профиля</h3>
+                <div class="profile-card">
+                    <p>Привет, <strong>{{ user.username }}</strong>!</p>
+                    
+                    <!-- Форма изменения аватарки -->
+                    <form action="/upload_avatar" method="POST" enctype="multipart/form-data" class="avatar-form">
+                        <label for="avatar">Сменить аватарку профиля:</label>
+                        <input type="file" name="avatar" id="avatar" accept="image/*" required>
+                        <button type="submit" class="save-btn">Сохранить аватарку</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<!-- СТИЛИ ДЛЯ ИНТЕРФЕЙСА (WhatsApp + Telegram стиль) -->
+<style>
+    .app-container { display: flex; height: 100vh; background: #111b21; color: #e9edef; font-family: sans-serif; }
+    .side-navigation { width: 70px; background: #202c33; display: flex; flex-direction: column; align-items: center; padding-top: 20px; border-right: 1px solid #2f3b43; }
+    .nav-item { margin-bottom: 25px; cursor: pointer; text-align: center; font-size: 20px; opacity: 0.6; transition: 0.3s; }
+    .nav-item span { display: block; font-size: 10px; margin-top: 5px; }
+    .nav-item.active, .nav-item:hover { opacity: 1; color: #00a884; }
+    
+    .main-content { flex: 1; position: relative; }
+    .tab-pane { display: none; height: 100%; width: 100%; }
+    .tab-pane.active-pane { display: block; }
+    
+    .chats-window { display: flex; height: 100%; }
+    .chats-sidebar { width: 300px; background: #111b21; border-right: 1px solid #2f3b43; display: flex; flex-direction: column; }
+    .sidebar-header { padding: 15px; background: #202c33; border-bottom: 1px solid #2f3b43; }
+    .chat-card { display: flex; padding: 12px; border-bottom: 1px solid #222d34; cursor: pointer; align-items: center; }
+    .chat-card:hover { background: #202c33; }
+    .chat-avatar { width: 40px; height: 40px; background: #6a7c85; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin-right: 12px; }
+    
+    .chat-area { flex: 1; display: flex; flex-direction: column; background: #0b141a; }
+    .chat-header { padding: 15px; background: #202c33; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #2f3b43; }
+    .call-btn { background: #00a884; border: none; color: white; padding: 8px 15px; border-radius: 20px; cursor: pointer; font-weight: bold; }
+    .call-btn:hover { background: #008f72; }
+    
+    .messages-container { flex: 1; padding: 20px; display: flex; align-items: center; justify-content: center; }
+    .spotify-window, .settings-window { padding: 30px; max-width: 600px; margin: 0 auto; }
+    .profile-card { background: #202c33; padding: 20px; border-radius: 10px; margin-top: 15px; }
+    .avatar-form input { display: block; margin: 15px 0; }
+    .save-btn { background: #34b7f1; border: none; padding: 10px 20px; color: white; border-radius: 5px; cursor: pointer; }
+</style>
+
+<!-- СКРИПТ ПЕРЕКЛЮЧЕНИЯ ВКЛАДОК И ЗВОНКОВ -->
+<script>
+    function switchTab(tabId) {
+        document.querySelectorAll('.tab-pane').forEach(el => el.classList.remove('active-pane'));
+        document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+        document.getElementById(tabId).classList.add('active-pane');
+        event.currentTarget.classList.add('active');
+    }
+
+    function startCall() {
+        const box = document.getElementById('call-box');
+        box.innerHTML = `
+            <div style="text-align:center; background:#202c33; padding:30px; border-radius:15px; border:2px solid #00a884;">
+                <div style="font-size:40px; margin-bottom:10px;">📞</div>
+                <h4>Идет подключение к звонку...</h4>
+                <p style="color:#8696a0;">Настройка WebRTC соединения</p>
+                <button onclick="location.reload()" style="background:#ea0038; border:none; color:white; padding:10px 20px; border-radius:20px; margin-top:15px; cursor:pointer;">Положить трубку</button>
+            </div>
+        `;
+    }
+</script>
+{% endblock %}
