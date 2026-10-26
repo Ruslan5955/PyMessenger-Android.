@@ -17,8 +17,9 @@ jobs:
         java-version: '17'
         distribution: 'temurin'
 
-    # Используем готовое действие для автоматической сборки без ручного вызова gradlew wrapper
+    # Исправленный шаг: принудительно создаем Gradle Wrapper перед сборкой
     - name: Gradle Build Action
       uses: gradle/gradle-build-action@v3
       with:
         arguments: assembleDebug
+        gradle-version: 8.1.1
