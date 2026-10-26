@@ -446,6 +446,20 @@ def forbidden(_):
 
 
 init_db()
+@app.route("/whatsapp")
+@login_required
+def whatsapp():
+    user = current_user()
+    with db() as con:
+        rows = con.execute("SELECT chat_id FROM chat_members WHERE user_id=?", (user["id"],)).fetchall()
+        chats = [chat_summary(con, r, user["id"]) for r in rows if r and r is not None]
+        chats.sort(key=lambda x: x["id"], reverse=True)
+        
+        # Дефолтный плейлист/трек Spotify для встроенной вкладки
+        spotify_playlist = "37i9dQZF1DXcBWIGo3jX2M" 
+        
+        return render_template("whatsapp.html", user=user, chats=chats, spotify_id=spotify_playlist)
+
 
 if __name__ == "__main__":
     # Local development only. For public deployment use a production WSGI server and HTTPS.
