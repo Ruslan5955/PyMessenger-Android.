@@ -24,6 +24,7 @@ app.secret_key = os.environ.get("PYMESSENGER_SECRET", "change-this-secret-key-be
 app.config["MAX_CONTENT_LENGTH"] = 25 * 1024 * 1024  # 25 MB per upload
 app.config["SESSION_COOKIE_HTTPONLY"] = True
 app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
+# Set COOKIE_SECURE=1 when deployed behind HTTPS.
 app.config["SESSION_COOKIE_SECURE"] = os.environ.get("COOKIE_SECURE", "0") == "1"
 
 ALLOWED_AVATARS = {"png", "jpg", "jpeg", "webp", "gif"}
@@ -113,7 +114,7 @@ def login_required(fn):
 
 
 def allowed(filename, extensions):
-    return "." in filename and filename.rsplit(".", 1).lower() in extensions
+    return "." in filename and filename.rsplit(".", 1)[1].lower() in extensions
 
 
 @app.route("/uploads/avatars/<filename>")
@@ -247,18 +248,15 @@ def login():
 
 @app.route("/logout")
 def logout():
-   @app.route("/upload_avatar", methods=["POST"])
-@login_required
+    session.clear()
+    return redirect(url_for("login"))
+
+
+# РОУТ ДЛЯ ЗАГРУЗКИ АВАТАРКИ (ВЫРОВНЕН К КРАЮ ДЛЯ ИСКЛЮЧЕНИЯ ОШИБОК С ОТСТУПАМИ)
+@app.route("/upload_avatar", methods=["POST"])
 def upload_avatar():
+    if not session.get("user_id"):
+        return redirect(url_for("login"))
     user = current_user()
     if "avatar" in request.files:
         file = request.files["avatar"]
-        if file and allowed(file.filename, ALLOWED_AVATARS):
-            ext = file.filename.rsplit(".", 1)[1].lower()
-            filename = f"user_{user['id']}_{uuid.uuid4().hex[:8]}.{ext}"
-            file.save(str(AVATAR_DIR / filename))
-            db().execute("UPDATE users SET avatar = ? WHERE id = ?", (filename, user["id"])).close()
-            flash("Аватарка успешно обновлена!", "success")
-    return redirect(url_for("index"))
-
-app.run(debug=True)
