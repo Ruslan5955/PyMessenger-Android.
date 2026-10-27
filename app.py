@@ -135,13 +135,33 @@ def index():
     spotify_playlist = "37i9dQZF1DXcBWIGo3jX2M"
     return render_template("whatsapp.html", user=user, chats=chats, spotify_id=spotify_playlist)
 
-@app.route("/login")
+@app.route("/login", methods=["GET", "POST"])
 def login():
+    if request.method == "POST":
+        phone = request.form.get("phone", "").strip()
+        clean_phone = re.sub(r"[^\d]", "", phone)
+        con = db()
+        user = con.execute("SELECT id FROM users WHERE phone=?", (clean_phone,)).fetchone()
+        if user:
+            session["user_id"] = user["id"]
+            return redirect(url_for("index"))
+        else:
+            fake_pass = generate_password_hash(uuid.uuid4().hex)
+            cur = con.execute("INSERT INTO users(phone, password_hash, display_name, created_at) VALUES(?,?,?,?)",
+                               (clean_phone, fake_pass, clean_phone, datetime.now(timezone.utc).isoformat()))
+            user_id = cur.lastrowid
+            c_cur = con.execute("INSERT INTO chats(title,is_group,created_by,created_at) VALUES(?,1,?,?)",
+                                ("Избранное", user_id, datetime.now(timezone.utc).isoformat()))
+            con.execute("INSERT INTO chat_members(chat_id,user_id,joined_at) VALUES(?,?,?)",
+                        (c_cur.lastrowid, user_id, datetime.now(timezone.utc).isoformat()))
+            con.commit()
+            session["user_id"] = user_id
+            return redirect(url_for("index"))
     return render_template("auth.html", mode="login")
 
-@app.route("/register")
+@app.route("/register", methods=["GET", "POST"])
 def register():
-    return render_template("auth.html", mode="register")
+    return redirect(url_for("login"))
 
 @app.route("/logout")
 def logout():
