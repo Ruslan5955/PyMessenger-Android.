@@ -3,45 +3,29 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>PyMessenger</title>
-  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <title>Life and Lion</title>
+  <style>
+    body { background-color: #070c10; color: #e9edef; font-family: sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
+    .card { background: #0b141a; padding: 30px; border-radius: 12px; text-align: center; width: 100%; max-width: 360px; border: 1px solid #2f3b43; }
+    h1 { color: #FFD700; margin: 0 0 10px 0; }
+    input { width: 100%; padding: 12px; margin: 10px 0; background: #15202b; border: 1px solid #2f3b43; border-radius: 6px; color: white; box-sizing: border-box; }
+    button { width: 100%; padding: 12px; background: #FFD700; border: none; border-radius: 6px; color: #070c10; font-weight: bold; cursor: pointer; margin-top: 10px; }
+    .tabs a { color: #8696a0; text-decoration: none; margin: 0 10px; font-weight: bold; }
+    .tabs a.active { color: #FFD700; border-bottom: 2px solid #FFD700; }
+  </style>
 </head>
-<body class="auth-body">
-<div class="auth-shell">
-  <div class="brand-mark">✦</div>
-  <h1>PyMessenger</h1>
-  <p class="muted">Твои сообщения. Твои люди.</p>
-  <div class="auth-card">
-    <div class="auth-tabs">
-      <a class="{{ 'active' if mode == 'login' else '' }}" href="{{ url_for('login') }}">Войти</a>
-      <a class="{{ 'active' if mode == 'register' else '' }}" href="{{ url_for('register') }}">Создать аккаунт</a>
-    </div>
-    
-    {% with messages = get_flashed_messages(with_categories=true) %}
-      {% for category, message in messages %}
-        <div class="notice {{ category }}">{{ message }}</div>
-      {% endfor %}
-    {% endwith %}
-    
-    <form method="post">
-      {% if mode == 'register' %}
-        <label>Как тебя называть
-          <input name="display_name" maxlength="40" required placeholder="Например, Рома">
-        </label>
-      {% endif %}
-      
-      <label>Номер телефона
-        <input type="tel" name="phone" required autocomplete="tel" placeholder="+7 (999) 123-45-67">
-      </label>
-      
-      <label>Пароль
-        <input name="password" type="password" minlength="{{ 8 if mode == 'register' else 1 }}" required autocomplete="{{ 'new-password' if mode == 'register' else 'current-password' }}" placeholder="Минимум 8 символов">
-      </label>
-      
-      <button class="primary full" type="submit">{{ 'Создать аккаунт' if mode == 'register' else 'Войти в мессенджер' }}</button>
-    </form>
-    <p class="small muted">Пароли хранятся в виде хеша, а не обычным текстом.</p>
+<body>
+<div class="card">
+  <h1>🦁 LIFE AND LION</h1>
+  <div class="tabs" style="margin-bottom: 20px;">
+    <a class="{{ 'active' if mode == 'login' else '' }}" href="{{ url_for('login') }}">Войти</a>
+    <a class="{{ 'active' if mode == 'register' else '' }}" href="{{ url_for('register') }}">Регистрация</a>
   </div>
+  <form method="post" action="{{ url_for('index') }}">
+    <input type="tel" name="phone" placeholder="Номер телефона" required>
+    <input type="password" name="password" placeholder="Пароль" required>
+    <button type="submit">ПРОДОЛЖИТЬ</button>
+  </form>
 </div>
 </body>
 </html>
