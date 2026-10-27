@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<shape xmlns:android="http://android.com"
+    android:shape="rectangle">
+    <solid android:color="#15202b" /> <!-- Темный фон поля -->
+    <stroke android:width="1dp" android:color="#2f3b43" /> <!-- Стильный контур -->
+    <corners android:radius="14dp" /> <!-- Округление поля -->
+</shape>
