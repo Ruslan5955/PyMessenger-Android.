@@ -3,111 +3,98 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:fillViewport="true"
-    android:background="#070c10">
+    android:background="#0b141a"> <!-- Глубокий темный фон -->
 
     <RelativeLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:padding="24dp">
+        android:padding="28dp">
 
-        <!-- Фоновое декоративное свечение по центру -->
-        <View
-            android:layout_width="280dp"
-            android:layout_height="280dp"
-            android:layout_centerInParent="true"
-            android:background="@android:drawable/screen_background_dark"
-            android:alpha="0.08" />
-
-        <!-- Главный контейнер (ограничен по ширине для планшетов через maxWidth) -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_centerInParent="true"
             android:orientation="vertical"
             android:gravity="center"
-            android:maxWidth="420dp">
+            android:maxWidth="400dp">
 
-            <!-- Блок Логотипа -->
+            <!-- Логотип проекта -->
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="🦁"
-                android:textSize="72sp"
-                android:layout_marginBottom="8dp" />
+                android:textSize="85sp"
+                android:layout_marginBottom="12dp" />
 
             <TextView
-                android:id="@+id/txTitle"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="LIFE AND LION"
                 android:textColor="#FFD700"
-                android:textSize="28sp"
+                android:textSize="30sp"
                 android:textStyle="bold"
                 android:letterSpacing="0.08"
-                android:layout_marginBottom="4dp"
-                android:gravity="center" />
+                android:layout_marginBottom="4dp" />
 
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="Secure Cloud Messenger"
-                android:textColor="#7f8c8d"
+                android:textColor="#6a7c85"
                 android:textSize="13sp"
-                android:layout_marginBottom="32dp"
-                android:gravity="center" />
+                android:layout_marginBottom="44dp" />
 
-            <!-- Инпуты ввода (Адаптивная высота) -->
+            <!-- Стильное круглое поле телефона -->
             <EditText
                 android:id="@+id/phoneInput"
                 android:layout_width="match_parent"
-                android:layout_height="52dp"
+                android:layout_height="54dp"
                 android:hint="Номер телефона"
-                android:textColorHint="#56636f"
+                android:textColorHint="#6a7c85"
                 android:textColor="#e9edef"
                 android:inputType="phone"
-                android:paddingLeft="16dp"
-                android:paddingRight="16dp"
-                android:background="@android:drawable/editbox_dropdown_dark_frame"
-                android:layout_marginBottom="14dp"
-                android:textSize="15sp"
+                android:paddingLeft="20dp"
+                android:paddingRight="20dp"
+                android:background="@drawable/rounded_input"
+                android:layout_marginBottom="16dp"
+                android:textSize="16sp"
                 android:maxLines="1" />
 
+            <!-- Стильное круглое поле пароля -->
             <EditText
                 android:id="@+id/passwordInput"
                 android:layout_width="match_parent"
-                android:layout_height="52dp"
-                android:hint="Пароль профиля"
-                android:textColorHint="#56636f"
+                android:layout_height="54dp"
+                android:hint="Пароль"
+                android:textColorHint="#6a7c85"
                 android:textColor="#e9edef"
                 android:inputType="textPassword"
-                android:paddingLeft="16dp"
-                android:paddingRight="16dp"
-                android:background="@android:drawable/editbox_dropdown_dark_frame"
-                android:layout_marginBottom="28dp"
-                android:textSize="15sp"
+                android:paddingLeft="20dp"
+                android:paddingRight="20dp"
+                android:background="@drawable/rounded_input"
+                android:layout_marginBottom="32dp"
+                android:textSize="16sp"
                 android:maxLines="1" />
 
-            <!-- Адаптивная кнопка -->
+            <!-- Трендовая круглая кнопка ВОЙТИ -->
             <Button
                 android:id="@+id/loginButton"
                 android:layout_width="match_parent"
-                android:layout_height="52dp"
-                android:text="ВОЙТИ"
-                android:textColor="#070c10"
-                android:textSize="15sp"
+                android:layout_height="54dp"
+                android:text="Войти"
+                android:textColor="#0b141a"
+                android:textSize="16sp"
                 android:textStyle="bold"
-                android:letterSpacing="0.05"
-                android:backgroundTint="#FFD700" />
+                android:background="@drawable/rounded_button"
+                android:stateListAnimator="@null" /> <!-- Убираем топорные тени 2000-х -->
 
-            <!-- Нижний текст защиты -->
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="Защищено сквозным шифрованием"
-                android:textColor="#41525d"
-                android:textSize="11sp"
-                android:layout_marginTop="32dp"
-                android:gravity="center" />
+                android:textColor="#2f3b43"
+                android:textSize="12sp"
+                android:layout_marginTop="40dp" />
 
         </LinearLayout>
     </RelativeLayout>
