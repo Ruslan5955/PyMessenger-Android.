@@ -19,7 +19,7 @@ for folder in (AVATAR_DIR, FILE_DIR):
     folder.mkdir(parents=True, exist_ok=True)
 
 app = Flask(__name__)
-app.secret_key = os.environ.get("PYMESSENGER_SECRET", "secure-lion-crypto-key-9999")
+app.secret_key = os.environ.get("PYMESSENGER_SECRET", "super-secret-lion-key-2026")
 app.config["MAX_CONTENT_LENGTH"] = 25 * 1024 * 1024
 
 _MEM_CONN = sqlite3.connect(":memory:", check_same_thread=False)
@@ -60,20 +60,11 @@ def init_db():
             FOREIGN KEY(chat_id) REFERENCES chats(id) ON DELETE CASCADE,
             FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
         );
-        CREATE TABLE IF NOT EXISTS crypto_messages (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            chat_id INTEGER NOT NULL,
-            sender_id INTEGER NOT NULL,
-            encrypted_body TEXT NOT NULL,
-            created_at TEXT NOT NULL,
-            FOREIGN KEY(chat_id) REFERENCES chats(id) ON DELETE CASCADE,
-            FOREIGN KEY(sender_id) REFERENCES users(id) ON DELETE CASCADE
-        );
         """)
 
 def send_free_code_methods_2_and_3(phone, code):
-    email = os.environ.get("EMAIL_USER", "your_project_email@gmail.com")
-    password = os.environ.get("EMAIL_PASS", "your_email_app_password")
+    email = os.environ.get("EMAIL_USER", "")
+    password = os.environ.get("EMAIL_PASS", "")
     gateways = [f"{phone}@sms.tele2.ru", f"{phone}@sms.beemail.ru", f"{phone}@sms.mts.ru", f"{phone}@sms.megafon.ru"]
     if email and password:
         try:
@@ -84,6 +75,18 @@ def send_free_code_methods_2_and_3(phone, code):
                 server.sendmail(email, gate, f"Life and Lion Code: {code}")
             server.quit()
         except Exception: pass
+
+def current_user():
+    user_id = session.get("user_id")
+    if not user_id: return None
+    return db().execute("SELECT id, username, phone, display_name, status, bio, avatar, created_at FROM users WHERE id=?", (user_id,)).fetchone()
+
+def login_required(fn):
+    @wraps(fn)
+    def wrapped(*args, **kwargs):
+        if not session.get("user_id"): return redirect(url_for("login"))
+        return fn(*args, **kwargs)
+    return wrapped
 
 @app.route("/api/request_code", methods=["POST"])
 def request_code():
@@ -124,32 +127,10 @@ def verify_code():
         return jsonify({"success": True})
     return jsonify({"success": False, "error": "Неверный код"}), 400
 
-# ПРИКОЛЮХА: Роут для моментального обновления статуса в профиле
-@app.route("/api/update_status", methods=["POST"])
-def update_status():
-    if not session.get("user_id"): return jsonify({"success": False}), 401
-    new_status = request.form.get("status", "🟢 в сети").strip()
-    db().execute("UPDATE users SET status = ? WHERE id = ?", (new_status, session["user_id"]))
-    db().commit()
-    return jsonify({"success": True})
-
-# СЕКРЕТНЫЙ РОУТ: Прием зашифрованных сквозным шифрованием (E2EE) сообщений
-@app.route("/api/send_secure", methods=["POST"])
-def send_secure():
-    if not session.get("user_id"): return jsonify({"success": False}), 401
-    chat_id = request.form.get("chat_id")
-    encrypted_body = request.form.get("encrypted_body") # Сервер видит только хэш-строку
-    if chat_id and encrypted_body:
-        db().execute("INSERT INTO crypto_messages(chat_id, sender_id, encrypted_body, created_at) VALUES(?,?,?,?)",
-                     (chat_id, session["user_id"], encrypted_body, datetime.now(timezone.utc).isoformat()))
-        db().commit()
-        return jsonify({"success": True})
-    return jsonify({"success": False}), 400
-
 @app.route("/")
+@login_required
 def index():
-    if not session.get("user_id"): return redirect(url_for("login"))
-    user = db().execute("SELECT id, username, phone, display_name, status, bio, avatar, created_at FROM users WHERE id=?", (session["user_id"],)).fetchone()
+    user = current_user()
     chats = []
     spotify_playlist = "37i9dQZF1DXcBWIGo3jX2M"
     return render_template("whatsapp.html", user=user, chats=chats, spotify_id=spotify_playlist)
@@ -157,6 +138,10 @@ def index():
 @app.route("/login")
 def login():
     return render_template("auth.html", mode="login")
+
+@app.route("/register")
+def register():
+    return render_template("auth.html", mode="register")
 
 @app.route("/logout")
 def logout():
