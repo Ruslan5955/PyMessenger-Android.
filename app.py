@@ -24,7 +24,6 @@ app.secret_key = os.environ.get("PYMESSENGER_SECRET", "change-this-secret-key-be
 app.config["MAX_CONTENT_LENGTH"] = 25 * 1024 * 1024  # 25 MB per upload
 app.config["SESSION_COOKIE_HTTPONLY"] = True
 app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
-# Set COOKIE_SECURE=1 when deployed behind HTTPS.
 app.config["SESSION_COOKIE_SECURE"] = os.environ.get("COOKIE_SECURE", "0") == "1"
 
 ALLOWED_AVATARS = {"png", "jpg", "jpeg", "webp", "gif"}
@@ -41,19 +40,11 @@ def db():
 
 def init_db():
     with db() as con:
-        # Отключаем проверку связей и очищаем таблицы для применения колонки phone
-        con.execute("PRAGMA foreign_keys = OFF")
-        con.execute("DROP TABLE IF EXISTS chat_members;")
-        con.execute("DROP TABLE IF EXISTS messages;")
-        con.execute("DROP TABLE IF EXISTS chats;")
-        con.execute("DROP TABLE IF EXISTS users;")
-        con.execute("PRAGMA foreign_keys = ON")
-        
+        # Создаем таблицы, если их вообще нет
         con.executescript("""
         CREATE TABLE IF NOT EXISTS users (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             username TEXT UNIQUE COLLATE NOCASE,
-            phone TEXT UNIQUE NOT NULL,
             password_hash TEXT NOT NULL,
             display_name TEXT NOT NULL,
             bio TEXT NOT NULL DEFAULT '',
@@ -88,9 +79,14 @@ def init_db():
             FOREIGN KEY(chat_id) REFERENCES chats(id) ON DELETE CASCADE,
             FOREIGN KEY(sender_id) REFERENCES users(id) ON DELETE CASCADE
         );
-        CREATE INDEX IF NOT EXISTS idx_messages_chat_id ON messages(chat_id, id);
-        CREATE INDEX IF NOT EXISTS idx_members_user_id ON chat_members(user_id);
         """)
+        
+        # ЖЕЛЕЗОБЕТОННАЯ ПРОВЕРКА КОЛОНКИ PHONE:
+        # Проверяем, есть ли уже колонка phone в таблице users. Если нет — добавляем её!
+        cursor = con.execute("PRAGMA table_info(users)")
+        columns = [row["name"] for row in cursor.fetchall()]
+        if "phone" not in columns:
+            con.execute("ALTER TABLE users ADD COLUMN phone TEXT UNIQUE")
 
 
 def now_iso():
@@ -102,6 +98,7 @@ def current_user():
     if not user_id:
         return None
     with db() as con:
+        # Безопасно вытаскиваем данные пользователя
         return con.execute("SELECT id, username, phone, display_name, bio, avatar, created_at FROM users WHERE id=?", (user_id,)).fetchone()
 
 
@@ -115,7 +112,7 @@ def login_required(fn):
 
 
 def allowed(filename, extensions):
-    return "." in filename and filename.rsplit(".", 1)[1].lower() in extensions
+    return "." in filename and filename.rsplit(".", 1).lower() in extensions
 
 
 @app.route("/uploads/avatars/<filename>")
@@ -146,7 +143,7 @@ def chat_summary(con, chat_id, user_id):
         other = next((m for m in members if m["id"] != user_id), None)
         title = other["display_name"] if other else chat["title"]
         avatar = other["avatar"] if other else ""
-        subtitle = other["phone"] if other else "Личный чат"
+        subtitle = other["phone"] if other and other["phone"] else "Личный чат"
     last = con.execute("""
         SELECT m.body, m.attachment_name, m.created_at, u.display_name
         FROM messages m JOIN users u ON u.id=m.sender_id
@@ -258,15 +255,11 @@ def upload_avatar():
         if file and allowed(file.filename, ALLOWED_AVATARS):
             ext = file.filename.rsplit(".", 1).lower()
             filename = f"user_{user['id']}_{uuid.uuid4().hex[:8]}.{ext}"
-file.save(str(AVATAR_DIR / filename))
-db().execute("UPDATE users SET avatar = ? WHERE id = ?", (filename, user["id"])).close()
-flash("Аватарка успешно обновлена!", "success")
+            file.save(str(AVATAR_DIR / filename))
+            db().execute("UPDATE users SET avatar = ? WHERE id = ?", (filename, user["id"])).close()
+            flash("Аватарка успешно обновлена!", "success")
 return redirect(url_for("index"))
-if __name__ == "__main__":
-    # Принудительно стираем старый файл базы данных, если он существует
-    if DB_PATH.exists():
-        DB_PATH.unlink()
-        
-    init_db()
-    port = int(os.environ.get("PORT", 5000))
-    app.run(host="0.0.0.0", port=port, debug=True)
+if name == "main":
+init_db()
+port = int(os.environ.get("PORT", 5000))
+app.run(host="0.0.0.0", port=port, debug=True)
