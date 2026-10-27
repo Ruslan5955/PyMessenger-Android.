@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>PyMessenger</title><link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}"></head>
+<body class="app-body">
+<div class="app">
+  <aside class="sidebar">
+    <div class="side-top"><div class="brand-small"><span class="brand-mark tiny">✦</span><strong>PyMessenger</strong></div><button class="icon-btn" id="newChatBtn" title="Новый чат">＋</button></div>
+    <div class="me-card">
+      <div class="avatar me-avatar">{% if user.avatar %}<img src="{{ url_for('uploaded_avatar', filename=user.avatar) }}">{% else %}{{ user.display_name[:1]|upper }}{% endif %}</div>
+      <div class="me-info"><strong>{{ user.display_name }}</strong><span>@{{ user.username }}</span></div>
+      <a class="icon-btn profile-link" href="{{ url_for('profile') }}" title="Профиль">⚙</a>
+    </div>
+    <div class="search-wrap"><span>⌕</span><input id="chatSearch" placeholder="Поиск чатов"></div>
+    <div class="section-label">СООБЩЕНИЯ <button id="newGroupBtn" class="text-btn">＋ группа</button></div>
+    <div class="chat-list" id="chatList">
+      {% for chat in chats %}
+      <a class="chat-item {{ 'selected' if chat.id == selected_chat else '' }}" data-chat-id="{{ chat.id }}" href="{{ url_for('messenger', chat=chat.id) }}">
+        <div class="avatar chat-avatar">{% if chat.avatar %}<img src="{{ url_for('uploaded_avatar', filename=chat.avatar) }}">{% elif chat.is_group %}👥{% else %}{{ chat.title[:1]|upper }}{% endif %}</div>
+        <div class="chat-meta"><div class="chat-title-row"><strong>{{ chat.title }}</strong></div><span class="preview">{{ chat.preview or chat.subtitle }}</span></div>
+      </a>
+      {% endfor %}
+      {% if not chats %}<div class="empty-side">Пока нет чатов.<br>Нажми ＋, чтобы начать.</div>{% endif %}
+    </div>
+    <div class="side-footer"><span class="online-dot"></span> Личный мессенджер</div>
+  </aside>
+  <main class="conversation">
+    {% if selected_chat %}
+    <header class="conversation-header">
+      <div class="avatar header-avatar" id="headerAvatar">✦</div>
+      <div><strong id="headerTitle">Загрузка чата…</strong><div class="header-sub" id="headerSub">История сохраняется на сервере</div></div>
+      <div class="header-actions">{% if selected_direct %}<button class="icon-btn" id="audioCallBtn" title="Аудиозвонок">📞</button><button class="icon-btn" id="videoCallBtn" title="Видеозвонок">📹</button>{% endif %}<button class="icon-btn" id="refreshBtn" title="Обновить">↻</button><a class="icon-btn" href="{{ url_for('profile') }}" title="Мой профиль">☻</a></div>
+    </header>
+    <div class="messages" id="messages"><div class="loading">Загружаем сообщения…</div></div>
+    <div class="recording-note" id="recordingNote" hidden>● Идёт запись голосового сообщения… <button id="cancelRecordBtn" class="text-btn">Отмена</button></div>
+    <form class="composer" id="composer">
+      <input type="file" id="fileInput" hidden>
+      <button type="button" class="attach-btn" id="attachBtn" title="Прикрепить фото или файл">＋</button>
+      <textarea id="messageInput" rows="1" maxlength="4000" placeholder="Написать сообщение…" autocomplete="off"></textarea>
+      <button type="button" class="voice-btn" id="voiceBtn" title="Записать голосовое">🎙</button>
+      <button class="send-btn" type="submit" title="Отправить">➤</button>
+    </form>
+    {% else %}
+    <div class="welcome"><div class="welcome-icon">✦</div><h2>Добро пожаловать в PyMessenger</h2><p>Выбери чат слева или начни новую переписку.</p><button class="primary" id="welcomeNew">＋ Новый чат</button></div>
+    {% endif %}
+  </main>
+</div>
+
+
+<div class="call-overlay" id="callOverlay" hidden>
+  <video id="remoteVideo" class="remote-video" autoplay playsinline></video>
+  <video id="localVideo" class="local-video" autoplay playsinline muted></video>
+  <audio id="remoteAudio" autoplay></audio>
+  <div class="call-info"><div class="call-name" id="callName"></div><div class="call-status" id="callStatus"></div></div>
+  <div class="call-controls">
+    <button class="call-btn" id="acceptCallBtn" hidden title="Принять">📞</button>
+    <button class="call-btn" id="muteCallBtn" hidden title="Выключить микрофон">🎙</button>
+    <button class="call-btn danger" id="hangupCallBtn" title="Завершить">✖</button>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="modalBackdrop" hidden>
+  <div class="modal">
+    <button class="modal-close" id="modalClose">×</button>
+    <h2 id="modalTitle">Новый чат</h2><p class="muted" id="modalHint">Найди пользователя по логину или имени.</p>
+    <div id="singleChatPane"><input id="userSearch" class="modal-input" placeholder="Начни вводить имя или логин"><div id="searchResults" class="search-results"></div></div>
+    <div id="groupPane" hidden><label class="modal-label">Название группы<input id="groupTitle" class="modal-input" maxlength="60" placeholder="Например, Друзья"></label><div class="modal-label">Выбери участников</div><div id="groupSelected" class="selected-users"></div><input id="groupSearch" class="modal-input" placeholder="Поиск пользователей"><div id="groupResults" class="search-results"></div><button id="createGroupBtn" class="primary full">Создать группу</button></div>
+  </div>
+</div>
+<script>
+window.PYMESSENGER = {userId: {{ user.id }}, selectedChat: {{ selected_chat if selected_chat else 'null' }}, displayName: {{ user.display_name|tojson }}};
+</script>
+<script src="{{ url_for('static', filename='app.js') }}"></script>
+<script src="{{ url_for('static', filename='calls.js') }}"></script>
+</body></html>
