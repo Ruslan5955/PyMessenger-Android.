@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block content %}
 <div class="app-container">
-    <!-- Боковая панель переключения вкладок (в стиле Telegram/WhatsApp) -->
+    <!-- Боковая панель переключения вкладок -->
     <div class="side-navigation">
         <div class="nav-item active" onclick="switchTab('chats-tab')">💬<span>Чаты</span></div>
         <div class="nav-item" onclick="switchTab('spotify-tab')">🎵<span>Музыка</span></div>
@@ -16,27 +16,51 @@
             <div class="chats-window">
                 <div class="chats-sidebar">
                     <div class="sidebar-header">
-                        <h3>Чаты</h3>
+                        <h3>Майо Мессенджер</h3>
                     </div>
                     <div class="chats-list">
                         {% for chat in chats %}
                         <div class="chat-card">
                             <div class="chat-avatar">👥</div>
                             <div class="chat-info">
-                                <h4>{{ chat.name }}</h4>
+                                <h4>{{ chat.title }}</h4>
+                                <p class="chat-sub">{{ chat.subtitle }}</p>
                             </div>
                         </div>
                         {% endfor %}
                     </div>
                 </div>
+                
+                <!-- ОКНО ОТКРЫТОГО ЧАТА С АНИМИРОВАННЫМ ФОНОМ -->
                 <div class="chat-area">
                     <div class="chat-header">
-                        <h4>Выберите чат для общения</h4>
-                        <!-- Кнопка звонка -->
-                        <button class="call-btn" onclick="startCall()">📞 Позвонить</button>
+                        <div>
+                            <h4>Рабочий чат</h4>
+                            <span class="user-status" id="status-indicator">🟢 в сети</span>
+                        </div>
+                        <button class="call-btn" onclick="startCall()">📞 Звонок</button>
                     </div>
+                    
+                    <!-- Область сообщений с премиум градиентом -->
                     <div class="messages-container" id="call-box">
-                        <p class="placeholder-text">Здесь будут сообщения и управление звонками...</p>
+                        <div class="message-bubble received">Привет! Как тебе новый дизайн нашего мессенджера? 🔥</div>
+                        <div class="message-bubble sent">Выглядит просто нереально круто! Анимированный фон — топ. 🚀</div>
+                    </div>
+
+                    <!-- ПРИКОЛЮХА 1: Панель быстрых эмодзи -->
+                    <div class="emoji-bar">
+                        <span onclick="addEmoji('👍')">👍</span>
+                        <span onclick="addEmoji('🔥')">🔥</span>
+                        <span onclick="addEmoji('😂')">😂</span>
+                        <span onclick="addEmoji('❤️')">❤️</span>
+                        <span onclick="addEmoji('👑')">👑</span>
+                        <span onclick="addEmoji('📱')">📱</span>
+                    </div>
+
+                    <!-- Поле ввода -->
+                    <div class="input-panel">
+                        <input type="text" id="message-input" placeholder="Напишите сообщение...">
+                        <button class="send-btn" onclick="sendMessage()">⚡</button>
                     </div>
                 </div>
             </div>
@@ -47,24 +71,36 @@
             <div class="spotify-window">
                 <h3>Встроенный плеер Spotify</h3>
                 <iframe src="https://spotify.com{{ spotify_id }}" 
-                        width="100%" height="450" frameborder="0" allowtransparency="true" 
+                        width="100%" height="480" frameborder="0" allowtransparency="true" 
                         allow="encrypted-media; clipboard-write; picture-in-picture"></iframe>
             </div>
         </div>
 
-        <!-- ВКЛАДКА 3: НАСТРОЙКИ И АВАТАРКА -->
+        <!-- ВКЛАДКА 3: НАСТРОЙКИ, АВАТАРКА И СТАТУС -->
         <div id="settings-tab" class="tab-pane">
             <div class="settings-window">
                 <h3>Настройки профиля</h3>
                 <div class="profile-card">
-                    <p>Привет, <strong>{{ user.username }}</strong>!</p>
+                    <p>Пользователь: <strong>{{ user.display_name }}</strong></p>
+                    <p>Номер: <span style="color: #00a884;">{{ user.phone }}</span></p>
                     
-                    <!-- Форма изменения аватарки -->
+                    <!-- ПРИКОЛЮХА 2: Смена кастомного статуса -->
+                    <label for="status-select" style="display:block; margin-top:15px;">Выбрать статус:</label>
+                    <select id="status-select" onchange="changeStatus()" style="background:#111b21; color:white; padding:8px; border-radius:5px; width:100%; border:1px solid #2f3b43;">
+                        <option value="🟢 в сети">🟢 В сети</option>
+                        <option value="🎵 слушает Spotify">🎵 Слушает Spotify</option>
+                        <option value="🚀 кодит мессенджер">🚀 Кодит мессенджер</option>
+                        <option value="💤 спит">💤 Спит</option>
+                    </select>
+
+                    <hr style="border-color: #2f3b43; margin: 20px 0;">
+
                     <form action="/upload_avatar" method="POST" enctype="multipart/form-data" class="avatar-form">
                         <label for="avatar">Сменить аватарку профиля:</label>
                         <input type="file" name="avatar" id="avatar" accept="image/*" required>
-                        <button type="submit" class="save-btn">Сохранить аватарку</button>
+                        <button type="submit" class="save-btn">Сохранить новую аватарку</button>
                     </form>
+                    <a href="/logout" style="display:block; margin-top:20px; color:#ea0038; text-decoration:none; font-weight:bold;">🚪 Выйти из аккаунта</a>
                 </div>
             </div>
         </div>
@@ -72,56 +108,93 @@
     </div>
 </div>
 
-<!-- СТИЛИ ДЛЯ ИНТЕРФЕЙСА (WhatsApp + Telegram стиль) -->
+<!-- СТИЛИ ИНТЕРФЕЙСА (WhatsApp + Telegram Premium Style) -->
 <style>
-    .app-container { display: flex; height: 100vh; background: #111b21; color: #e9edef; font-family: sans-serif; }
-    .side-navigation { width: 70px; background: #202c33; display: flex; flex-direction: column; align-items: center; padding-top: 20px; border-right: 1px solid #2f3b43; }
-    .nav-item { margin-bottom: 25px; cursor: pointer; text-align: center; font-size: 20px; opacity: 0.6; transition: 0.3s; }
-    .nav-item span { display: block; font-size: 10px; margin-top: 5px; }
+    .app-container { display: flex; height: 100vh; background: #0b141a; color: #e9edef; font-family: sans-serif; overflow: hidden; }
+    .side-navigation { width: 70px; background: #1f2c34; display: flex; flex-direction: column; align-items: center; padding-top: 20px; border-right: 1px solid #2f3b43; }
+    .nav-item { margin-bottom: 25px; cursor: pointer; text-align: center; font-size: 22px; opacity: 0.5; transition: 0.3s; width: 100%; }
+    .nav-item span { display: block; font-size: 10px; margin-top: 5px; color: #8696a0; }
     .nav-item.active, .nav-item:hover { opacity: 1; color: #00a884; }
+    .nav-item.active span { color: #00a884; }
     
-    .main-content { flex: 1; position: relative; }
+    .main-content { flex: 1; position: relative; height: 100%; }
     .tab-pane { display: none; height: 100%; width: 100%; }
     .tab-pane.active-pane { display: block; }
     
     .chats-window { display: flex; height: 100%; }
-    .chats-sidebar { width: 300px; background: #111b21; border-right: 1px solid #2f3b43; display: flex; flex-direction: column; }
-    .sidebar-header { padding: 15px; background: #202c33; border-bottom: 1px solid #2f3b43; }
-    .chat-card { display: flex; padding: 12px; border-bottom: 1px solid #222d34; cursor: pointer; align-items: center; }
-    .chat-card:hover { background: #202c33; }
-    .chat-avatar { width: 40px; height: 40px; background: #6a7c85; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin-right: 12px; }
+    .chats-sidebar { width: 320px; background: #111b21; border-right: 1px solid #2f3b43; display: flex; flex-direction: column; }
+    .sidebar-header { padding: 20px; background: #1f2c34; border-bottom: 1px solid #2f3b43; }
+    .chats-list { flex: 1; overflow-y: auto; }
+    .chat-card { display: flex; padding: 15px; border-bottom: 1px solid #222d34; cursor: pointer; align-items: center; }
+    .chat-card:hover { background: #1f2c34; }
+    .chat-avatar { width: 45px; height: 45px; background: #6a7c85; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin-right: 15px; font-size: 20px; }
+    .chat-info h4 { margin: 0 0 5px 0; font-size: 16px; }
+    .chat-sub { margin: 0; font-size: 13px; color: #8696a0; }
     
     .chat-area { flex: 1; display: flex; flex-direction: column; background: #0b141a; }
-    .chat-header { padding: 15px; background: #202c33; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #2f3b43; }
-    .call-btn { background: #00a884; border: none; color: white; padding: 8px 15px; border-radius: 20px; cursor: pointer; font-weight: bold; }
-    .call-btn:hover { background: #008f72; }
+    .chat-header { padding: 15px 20px; background: #1f2c34; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #2f3b43; }
+    .chat-header h4 { margin: 0 0 3px 0; }
+    .user-status { font-size: 12px; color: #8696a0; }
+    .call-btn { background: #00a884; border: none; color: white; padding: 8px 18px; border-radius: 20px; cursor: pointer; font-weight: bold; transition: 0.2s; }
+    .call-btn:hover { background: #008f72; transform: scale(1.05); }
     
-    .messages-container { flex: 1; padding: 20px; display: flex; align-items: center; justify-content: center; }
+    /* ПРИКОЛЮХА 3: Анимированный премиум фон для сообщений */
+    .messages-container { flex: 1; padding: 20px; display: flex; flex-direction: column; overflow-y: auto; background: linear-gradient(135deg, #0b141a 25%, #112523 50%, #0b141a 75%); background-size: 400% 400%; animation: gradientBG 15s ease infinite; }
+    @keyframes gradientBG {
+        0% { background-position: 0% 50%; }
+        50% { background-position: 100% 50%; }
+        100% { background-position: 0% 50%; }
+    }
+    
+    .message-bubble { max-width: 65%; padding: 10px 15px; border-radius: 15px; margin-bottom: 12px; font-size: 15px; line-height: 1.4; }
+    .message-bubble.received { background: #1f2c34; align-self: flex-start; border-top-left-radius: 2px; }
+    .message-bubble.sent { background: #005c4b; align-self: flex-end; border-top-right-radius: 2px; }
+    
+    .emoji-bar { background: #1f2c34; padding: 5px 15px; display: flex; gap: 15px; border-top: 1px solid #2f3b43; }
+    .emoji-bar span { cursor: pointer; font-size: 18px; transition: 0.2s; }
+    .emoji-bar span:hover { transform: scale(1.3); }
+    
+    .input-panel { padding: 10px 20px; background: #1f2c34; display: flex; align-items: center; gap: 12px; }
+    .input-panel input { flex: 1; background: #2a3942; border: none; padding: 12px; color: white; border-radius: 8px; font-size: 15px; }
+    .input-panel input:focus { outline: none; }
+    .send-btn { background: #00a884; border: none; color: white; width: 42px; height: 42px; border-radius: 50%; cursor: pointer; font-size: 18px; display: flex; align-items: center; justify-content: center; }
+    
     .spotify-window, .settings-window { padding: 30px; max-width: 600px; margin: 0 auto; }
-    .profile-card { background: #202c33; padding: 20px; border-radius: 10px; margin-top: 15px; }
-    .avatar-form input { display: block; margin: 15px 0; }
-    .save-btn { background: #34b7f1; border: none; padding: 10px 20px; color: white; border-radius: 5px; cursor: pointer; }
+    .profile-card { background: #1f2c34; padding: 25px; border-radius: 12px; margin-top: 20px; border: 1px solid #2f3b43; }
+    .avatar-form input { display: block; margin: 15px 0; color: #8696a0; }
+    .save-btn { background: #00a884; border: none; padding: 12px 20px; color: white; border-radius: 6px; cursor: pointer; font-weight: bold; width: 100%; }
+    .save-btn:hover { background: #008f72; }
 </style>
 
-<!-- СКРИПТ ПЕРЕКЛЮЧЕНИЯ ВКЛАДОК И ЗВОНКОВ -->
+<!-- СКРИПТЫ СИСТЕМЫ ВКЛАДОК, СТАТУСОВ И СООБЩЕНИЙ -->
 <script>
     function switchTab(tabId) {
-        document.querySelectorAll('.tab-pane').forEach(el => el.classList.remove('active-pane'));
-        document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
-        document.getElementById(tabId).classList.add('active-pane');
-        event.currentTarget.classList.add('active');
-    }
+document.querySelectorAll('.tab-pane').forEach(el => el.classList.remove('active-pane'));
+document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+document.getElementById(tabId).classList.add('active-pane');
+event.currentTarget.classList.add('active');
+}
+function addEmoji(emoji) {
+document.getElementById('message-input').value += emoji;
+}
+function changeStatus() {
+const val = document.getElementById('status-select').value;
+document.getElementById('status-indicator').innerText = val;
+}
+function sendMessage() {
+const input = document.getElementById('message-input');
+if(!input.value.strip) return;
+const container = document.getElementById('call-box');
+const msg = document.createElement('div');
+msg.className = 'message-bubble sent';
+msg.innerText = input.value;
+container.appendChild(msg);
+input.value = '';
+container.scrollTop = container.scrollHeight;
+}
+function startCall() {
+const box = document.getElementById('call-box');
+box.innerHTML = <div style="text-align:center; background:#1f2c34; padding:40px; border-radius:15px; border:2px solid #00a884; margin: auto;"> <div style="font-size:50px; margin-bottom:15px; animation: pulse 1.5s infinite;">📞</div> <h4>Майо Звонки</h4> <p style="color:#8696a0; margin-top: 5px;">Установка защищенного WebRTC соединения...</p> <button onclick="location.reload()" style="background:#ea0038; border:none; color:white; padding:12px 25px; border-radius:20px; margin-top:20px; cursor:pointer; font-weight:bold;">Положить трубку</button> </div>;
+}
 
-    function startCall() {
-        const box = document.getElementById('call-box');
-        box.innerHTML = `
-            <div style="text-align:center; background:#202c33; padding:30px; border-radius:15px; border:2px solid #00a884;">
-                <div style="font-size:40px; margin-bottom:10px;">📞</div>
-                <h4>Идет подключение к звонку...</h4>
-                <p style="color:#8696a0;">Настройка WebRTC соединения</p>
-                <button onclick="location.reload()" style="background:#ea0038; border:none; color:white; padding:10px 20px; border-radius:20px; margin-top:15px; cursor:pointer;">Положить трубку</button>
-            </div>
-        `;
-    }
-</script>
 {% endblock %}
