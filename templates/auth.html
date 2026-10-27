@@ -18,10 +18,9 @@
 <div class="card">
   <h1>🦁 LIFE AND LION</h1>
   <div class="tabs" style="margin-bottom: 20px;">
-    <a class="{{ 'active' if mode == 'login' else '' }}" href="{{ url_for('login') }}">Войти</a>
-    <a class="{{ 'active' if mode == 'register' else '' }}" href="{{ url_for('register') }}">Регистрация</a>
+    <a class="active" href="{{ url_for('login') }}">Вход / Регистрация</a>
   </div>
-  <form method="post" action="{{ url_for('index') }}">
+  <form method="post" action="{{ url_for('login') }}">
     <input type="tel" name="phone" placeholder="Номер телефона" required>
     <input type="password" name="password" placeholder="Пароль" required>
     <button type="submit">ПРОДОЛЖИТЬ</button>
