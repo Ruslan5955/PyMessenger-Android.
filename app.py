@@ -262,7 +262,11 @@ file.save(str(AVATAR_DIR / filename))
 db().execute("UPDATE users SET avatar = ? WHERE id = ?", (filename, user["id"])).close()
 flash("Аватарка успешно обновлена!", "success")
 return redirect(url_for("index"))
-if name == "main":
-init_db()
-port = int(os.environ.get("PORT", 5000))
-app.run(host="0.0.0.0", port=port, debug=True)
+if __name__ == "__main__":
+    # Принудительно стираем старый файл базы данных, если он существует
+    if DB_PATH.exists():
+        DB_PATH.unlink()
+        
+    init_db()
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port, debug=True)
