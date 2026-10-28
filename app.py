@@ -668,7 +668,7 @@ def api_messages(chat_id):
         cur = con.execute("""
             INSERT INTO messages(chat_id,sender_id,body,attachment,attachment_name,attachment_kind,created_at,reply_to_id)
             VALUES(?,?,?,?,?,?,?,?)
-        """, (chat_id, user_id, protect_message_body(body), attachment, attachment_name, attachment_kind, now_iso(), reply_to_id)
+        """, (chat_id, user_id, protect_message_body(body), attachment, attachment_name, attachment_kind, now_iso(), reply_to_id))
         msg_id = cur.lastrowid
         row = con.execute("""
             SELECT m.id,m.chat_id,m.sender_id,m.body,m.attachment,m.attachment_name,
