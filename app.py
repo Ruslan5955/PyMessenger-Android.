@@ -5,7 +5,6 @@ import sys
 import threading
 import uuid
 import webbrowser
-import requests
 from datetime import datetime, timezone
 from pathlib import Path
 from functools import wraps
@@ -544,45 +543,6 @@ def api_messages(chat_id):
     result["body"] = reveal_message_body(result["body"])
     return jsonify(result), 201
 
-
-@app.post("/api/assistant")
-@login_required
-def api_assistant():
-    data = request.get_json(silent=True) or {}
-    message = (data.get("message") or "").strip()
-    if not message:
-        return jsonify({"error": "Напиши вопрос для помощника."}), 400
-    if len(message) > 4000:
-        return jsonify({"error": "Сообщение слишком длинное (максимум 4000 символов)."}), 400
-    api_key = os.environ.get("OPENAI_API_KEY", "").strip()
-    if not api_key:
-        return jsonify({"error": "AI пока не настроен. Добавь OPENAI_API_KEY в Environment на Render, затем перезапусти сервис."}), 503
-    base_url = os.environ.get("OPENAI_BASE_URL", "https://api.openai.com/v1").rstrip("/")
-    model = os.environ.get("OPENAI_MODEL", "gpt-4o-mini").strip() or "gpt-4o-mini"
-    try:
-        response = requests.post(
-            base_url + "/chat/completions",
-            headers={"Authorization": "Bearer " + api_key, "Content-Type": "application/json"},
-            json={"model": model, "messages": [
-                {"role": "system", "content": "Ты Gloria AI — дружелюбный помощник, встроенный в мессенджер PyMessenger. Отвечай на языке пользователя, обычно по-русски. Будь полезным, ясным и не выдумывай факты."},
-                {"role": "user", "content": message}
-            ], "temperature": 0.7},
-            timeout=45,
-        )
-        if response.status_code >= 400:
-            app.logger.warning("AI provider returned HTTP %s", response.status_code)
-            return jsonify({"error": "AI-провайдер отклонил запрос. Проверь API-ключ, модель и лимит аккаунта."}), 502
-        payload = response.json()
-        reply = payload["choices"][0]["message"]["content"]
-        if not isinstance(reply, str) or not reply.strip():
-            raise ValueError("Empty assistant response")
-        return jsonify({"reply": reply.strip()})
-    except requests.RequestException:
-        app.logger.exception("AI provider request failed")
-        return jsonify({"error": "Не удалось связаться с AI-провайдером. Проверь интернет сервера."}), 502
-    except (ValueError, KeyError, IndexError, TypeError):
-        app.logger.exception("Unexpected AI provider response")
-        return jsonify({"error": "AI вернул ответ в неожиданном формате."}), 502
 
 
 @app.get("/api/calls/config")
