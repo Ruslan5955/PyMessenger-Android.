@@ -363,13 +363,13 @@ def list_chats(user_id):
             subtitle = "Групповой чат" if row["is_group"] else "Личный чат"
             if not row["is_group"]:
                 other = con.execute("""
-                    SELECT u.display_name,u.avatar FROM users u
+                    SELECT u.display_name,u.avatar,u.status FROM users u
                     JOIN chat_members cm ON cm.user_id=u.id
                     WHERE cm.chat_id=? AND u.id<>? LIMIT 1
                 """, (row["id"], user_id)).fetchone()
                 if other:
                     title, avatar = other["display_name"], other["avatar"]
-                    subtitle = "Личный чат"
+                    subtitle = other["status"] or "Личный чат"
             preview = row["last_body"] or (row["last_file"] or "")
             if preview.startswith("enc:v1:"):
                 preview = "🔒 Зашифрованное сообщение"
