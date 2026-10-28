@@ -179,9 +179,24 @@ def current_user():
 def login_required(fn):
     @wraps(fn)
     def wrapped(*args, **kwargs):
-        if not session.get("user_id"):
+        user_id = session.get("user_id")
+        user_exists = False
+        if user_id:
+            try:
+                with get_db() as con:
+                    user_exists = con.execute(
+                        "SELECT 1 FROM users WHERE id=?", (user_id,)
+                    ).fetchone() is not None
+            except sqlite3.Error:
+                app.logger.exception("Could not validate the signed-in user")
+                if request.path.startswith("/api/"):
+                    return jsonify({"error": "Ошибка базы данных. Попробуйте позже."}), 500
+                return "Ошибка базы данных. Попробуйте позже.", 500
+
+        if not user_exists:
+            session.clear()
             if request.path.startswith("/api/"):
-                return jsonify({"error": "Нужно войти в аккаунт."}), 401
+                return jsonify({"error": "Сессия устарела. Войдите в аккаунт заново."}), 401
             return redirect(url_for("login"))
         return fn(*args, **kwargs)
     return wrapped
