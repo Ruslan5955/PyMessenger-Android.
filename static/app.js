@@ -6,6 +6,14 @@ let pollTimer = null;
 let mediaRecorder = null;
 let recordedChunks = [];
 let selectedGroupUsers = new Map();
+let peerConnection = null;
+let localStream = null;
+let callMode = 'audio';
+let incomingOffer = null;
+let lastCallSignalId = 0;
+let queuedIceCandidates = [];
+let callBusy = false;
+let activeCallChat = null;
 const $ = id => document.getElementById(id);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const initials = s => (s || '?').trim().slice(0,1).toUpperCase();
@@ -87,6 +95,66 @@ async function submitMessage(body='', file=null) {
     await fetchMessages();
   } catch { showError('Не удалось связаться с сервером.'); }
 }
+
+function callStatus(text) { const el=$('callStatus'); if(el) el.textContent=text; }
+function showCallPanel() { if($('callBackdrop')) $('callBackdrop').hidden=false; }
+function hideCallPanel() { if($('callBackdrop')) $('callBackdrop').hidden=true; }
+async function sendCallSignal(kind,payload='') {
+ const chatId=activeCallChat||activeChat;if(!chatId)return;
+ const res=await fetch('/api/calls/'+chatId+'/signal',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({kind,payload:typeof payload==='string'?payload:JSON.stringify(payload)})});
+ const data=await res.json().catch(()=>({}));if(!res.ok)throw new Error(data.error||'Не удалось отправить сигнал звонка.');
+}
+async function createPeerConnection(mode) {
+ const r=await fetch('/api/calls/config');if(!r.ok)throw new Error('Не удалось получить настройки звонка.');
+ const config=await r.json();peerConnection=new RTCPeerConnection({iceServers:config.iceServers||[{urls:'stun:stun.l.google.com:19302'}]});
+ peerConnection.onicecandidate=e=>{if(e.candidate)sendCallSignal('ice',e.candidate.toJSON()).catch(()=>{});};
+ peerConnection.onconnectionstatechange=()=>{if(!peerConnection)return;if(peerConnection.connectionState==='connected')callStatus('Соединение установлено');if(['failed','disconnected'].includes(peerConnection.connectionState))callStatus('Соединение прервано. Проверьте интернет/NAT.');};
+ peerConnection.ontrack=e=>{const stream=e.streams&&e.streams[0];if(mode==='video'&&$('remoteVideo')){$('remoteVideo').srcObject=stream;$('callVideos').hidden=false;}else if($('remoteAudio'))$('remoteAudio').srcObject=stream;};
+}
+async function getCallMedia(mode) {
+ if(!navigator.mediaDevices?.getUserMedia)throw new Error('Микрофон и камера доступны только через HTTPS или localhost.');
+ localStream=await navigator.mediaDevices.getUserMedia({audio:true,video:mode==='video'});
+ if(mode==='video'){$('callVideos').hidden=false;$('localVideo').srcObject=localStream;}
+ localStream.getTracks().forEach(t=>peerConnection.addTrack(t,localStream));
+}
+async function flushIce(){if(!peerConnection?.remoteDescription)return;for(const cand of queuedIceCandidates.splice(0)){try{await peerConnection.addIceCandidate(cand);}catch{}}}
+async function startCall(mode) {
+ if(!cfg.isDirect||!activeChat||callBusy)return;
+ callBusy=true;callMode=mode;activeCallChat=activeChat;incomingOffer=null;queuedIceCandidates=[];
+ showCallPanel();$('callTitle').textContent=mode==='video'?'Видеозвонок':'Голосовой звонок';$('acceptCallBtn').hidden=true;$('declineCallBtn').hidden=true;$('hangupCallBtn').hidden=false;
+ callStatus('Запрашиваем доступ к '+(mode==='video'?'камере и микрофону…':'микрофону…'));
+ try{await createPeerConnection(mode);await getCallMedia(mode);const offer=await peerConnection.createOffer();await peerConnection.setLocalDescription(offer);await sendCallSignal('offer',{description:peerConnection.localDescription.toJSON(),mode});callStatus('Звоним собеседнику… ожидаем ответа');}
+ catch(e){showError(e.message||'Не удалось начать звонок.');await endCall(false);}
+}
+async function acceptCall() {
+ if(!incomingOffer||callBusy)return;callBusy=true;callMode=incomingOffer.mode||'audio';activeCallChat=Number(incomingOffer.chat_id);
+ $('acceptCallBtn').hidden=true;$('declineCallBtn').hidden=true;$('hangupCallBtn').hidden=false;callStatus('Подключаемся к собеседнику…');
+ try{await createPeerConnection(callMode);await getCallMedia(callMode);await peerConnection.setRemoteDescription(incomingOffer.description);await flushIce();const answer=await peerConnection.createAnswer();await peerConnection.setLocalDescription(answer);await sendCallSignal('answer',{description:peerConnection.localDescription.toJSON()});incomingOffer=null;}
+ catch(e){showError(e.message||'Не удалось ответить на звонок.');await endCall(true);}
+}
+async function endCall(notify=true) {
+ const chatId=activeCallChat||incomingOffer?.chat_id||activeChat;const shouldNotify=notify&&Boolean(chatId)&&(callBusy||Boolean(incomingOffer));callBusy=false;
+ if(shouldNotify){try{await fetch('/api/calls/'+chatId+'/signal',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({kind:'hangup',payload:''})});}catch{}}
+ if(peerConnection){peerConnection.onicecandidate=null;peerConnection.close();peerConnection=null;}if(localStream){localStream.getTracks().forEach(t=>t.stop());localStream=null;}
+ if($('localVideo'))$('localVideo').srcObject=null;if($('remoteVideo'))$('remoteVideo').srcObject=null;if($('remoteAudio'))$('remoteAudio').srcObject=null;if($('callVideos'))$('callVideos').hidden=true;
+ if($('hangupCallBtn'))$('hangupCallBtn').hidden=true;if($('acceptCallBtn'))$('acceptCallBtn').hidden=true;if($('declineCallBtn'))$('declineCallBtn').hidden=true;
+ incomingOffer=null;queuedIceCandidates=[];activeCallChat=null;callStatus('Звонок завершён');setTimeout(hideCallPanel,700);
+}
+async function handleCallSignal(signal) {
+ if(signal.kind==='offer'){
+  if(callBusy||incomingOffer){try{await fetch('/api/calls/'+signal.chat_id+'/signal',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({kind:'decline',payload:''})});}catch{}return;}
+  let offerData;try{offerData=JSON.parse(signal.payload);}catch{return;}
+  incomingOffer={chat_id:Number(signal.chat_id),description:offerData.description,mode:offerData.mode==='video'?'video':'audio'};activeCallChat=Number(signal.chat_id);callMode=incomingOffer.mode;
+  showCallPanel();$('callTitle').textContent=incomingOffer.mode==='video'?'Входящий видеозвонок':'Входящий голосовой звонок';callStatus((signal.from_name||'Собеседник')+' звонит вам');
+  $('acceptCallBtn').hidden=false;$('declineCallBtn').hidden=false;$('hangupCallBtn').hidden=true;return;
+ }
+ if(Number(signal.chat_id)!==Number(activeCallChat))return;
+ if(signal.kind==='answer'&&peerConnection){try{const answer=JSON.parse(signal.payload);await peerConnection.setRemoteDescription(answer.description);await flushIce();callStatus('Ответ получен. Соединяем…');}catch{callStatus('Не удалось обработать ответ собеседника.');}}
+ else if(signal.kind==='ice'){try{const candidate=new RTCIceCandidate(JSON.parse(signal.payload));if(peerConnection?.remoteDescription)await peerConnection.addIceCandidate(candidate);else queuedIceCandidates.push(candidate);}catch{}}
+ else if(signal.kind==='hangup'||signal.kind==='decline'){callStatus(signal.kind==='decline'?'Собеседник отклонил звонок':'Собеседник завершил звонок');await endCall(false);}
+}
+async function pollCallSignals(){try{const res=await fetch('/api/calls/poll?after='+lastCallSignalId);if(!res.ok)return;const data=await res.json();for(const signal of data.signals||[]){lastCallSignalId=Math.max(lastCallSignalId,Number(signal.id));await handleCallSignal(signal);}lastCallSignalId=Math.max(lastCallSignalId,Number(data.last_id||0));}catch{}}
+
 function openModal(group=false) {
   const backdrop = $('modalBackdrop');
   if (!backdrop) return;
@@ -178,6 +246,12 @@ document.addEventListener('DOMContentLoaded',()=>{
   $('createGroupBtn')?.addEventListener('click',createGroup);
   $('chatSearch')?.addEventListener('input',e=>{const q=e.target.value.toLowerCase();document.querySelectorAll('.chat-item').forEach(el=>el.style.display=el.innerText.toLowerCase().includes(q)?'':'none');});
   $('refreshBtn')?.addEventListener('click',()=>fetchMessages(true));
+  $('voiceCallBtn')?.addEventListener('click',()=>startCall('audio'));
+  $('videoCallBtn')?.addEventListener('click',()=>startCall('video'));
+  $('acceptCallBtn')?.addEventListener('click',acceptCall);
+  $('declineCallBtn')?.addEventListener('click',()=>endCall(true));
+  $('hangupCallBtn')?.addEventListener('click',()=>endCall(true));
+  setInterval(pollCallSignals,900);pollCallSignals();
   $('composer')?.addEventListener('submit',e=>{e.preventDefault();submitMessage($('messageInput').value);});
   $('attachBtn')?.addEventListener('click',()=>$('fileInput').click());
   $('fileInput')?.addEventListener('change',e=>{const file=e.target.files[0];if(file)submitMessage('',file);});
