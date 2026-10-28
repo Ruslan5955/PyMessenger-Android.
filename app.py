@@ -486,7 +486,18 @@ def api_messages(chat_id):
 @app.get("/api/calls/config")
 @login_required
 def calls_config():
-    return jsonify({"iceServers": [{"urls": "stun:stun.l.google.com:19302"}]})
+    ice_servers = [{"urls": "stun:stun.l.google.com:19302"}]
+    # Configure a TURN provider for reliable calls across restrictive NATs.
+    turn_url = os.environ.get("PYMESSENGER_TURN_URL", "").strip()
+    turn_user = os.environ.get("PYMESSENGER_TURN_USERNAME", "").strip()
+    turn_password = os.environ.get("PYMESSENGER_TURN_CREDENTIAL", "").strip()
+    if turn_url and turn_user and turn_password:
+        ice_servers.append({
+            "urls": turn_url,
+            "username": turn_user,
+            "credential": turn_password,
+        })
+    return jsonify({"iceServers": ice_servers})
 
 
 @app.post("/api/calls/<int:chat_id>/signal")
