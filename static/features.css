@@ -104,3 +104,11 @@ body,.app-body{
  .feature-modal{border-radius:22px;max-height:92dvh}
 }
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;transition-duration:.01ms!important;scroll-behavior:auto!important}}
+
+/* Message reactions */
+.reaction-bar{display:flex;flex-wrap:wrap;gap:5px;margin-top:8px}
+.reaction-btn{display:inline-flex;align-items:center;gap:4px;padding:4px 7px;border-radius:999px;background:rgba(8,14,29,.42);border:1px solid rgba(197,211,255,.13);color:#f5f7ff;font-size:12px;line-height:1.1;cursor:pointer;transition:transform .15s,border-color .15s,background .15s}
+.reaction-btn span{font-size:10px;color:#aebcda;min-width:6px}
+.reaction-btn:hover{transform:translateY(-1px);background:rgba(112,131,255,.16);border-color:rgba(153,166,255,.5)}
+.reaction-btn.has-reaction{background:rgba(111,129,255,.22);border-color:rgba(153,166,255,.68);box-shadow:0 0 14px rgba(111,129,255,.12)}
+.reaction-btn:disabled{opacity:.6}
