@@ -1,0 +1,61 @@
+name: Build PyMessenger for Windows
+
+on:
+  push:
+    branches: [ main ]
+    tags: [ 'v*' ]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          architecture: 'x64'
+
+      - name: Install build dependencies
+        run: python -m pip install --upgrade pip Flask pyinstaller
+
+      - name: Package Windows executable
+        shell: pwsh
+        run: |
+          pyinstaller --noconfirm --clean --onefile --name PyMessenger --add-data "templates;templates" --add-data "static;static" app.py
+          @"
+          PyMessenger for Windows x64
+
+          1. Extract this ZIP to a folder you can write to.
+          2. Double-click PyMessenger.exe.
+          3. Keep the black console window open while using the messenger.
+          4. Open http://127.0.0.1:5000 in your browser.
+          5. Create an account with your phone number and a password.
+
+          Your local database and uploaded files are saved under:
+          %LOCALAPPDATA%\PyMessenger
+
+          This is a local Windows build. It does not by itself publish the messenger to the internet or provide a shared online server.
+          "@ | Set-Content -Encoding utf8 dist\README-Windows.txt
+          Compress-Archive -Path dist\PyMessenger.exe,dist\README-Windows.txt -DestinationPath dist\PyMessenger-Windows-x64.zip -Force
+
+      - name: Upload Windows ZIP artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: PyMessenger-Windows-x64
+          path: dist/PyMessenger-Windows-x64.zip
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Publish GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/PyMessenger-Windows-x64.zip
+          generate_release_notes: true
