@@ -63,6 +63,7 @@ async function fetchMessages(initial=false) {
     const box = $('messages');
     if (initial) { box.innerHTML = ''; lastMessageId = 0; }
     if (rows.length) {
+      if (box.querySelector('.loading')) box.innerHTML = '';
       const nearBottom = box.scrollHeight - box.scrollTop - box.clientHeight < 130;
       rows.forEach(m => { box.insertAdjacentHTML('beforeend', renderMessage(m)); lastMessageId = Math.max(lastMessageId, Number(m.id)); });
       if (initial || nearBottom) box.scrollTop = box.scrollHeight;
