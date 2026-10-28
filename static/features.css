@@ -144,3 +144,5 @@ body,.app-body{
  .reply-quote span{max-width:65vw}
  .sticker-panel{padding:8px 10px}
 }
+
+.sticker-panel[hidden],.message-tools[hidden],.pinned-tools[hidden],.reply-preview[hidden]{display:none!important}
