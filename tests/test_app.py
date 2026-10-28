@@ -122,3 +122,70 @@ def test_call_signals_are_delivered_only_to_the_other_user(tmp_path, monkeypatch
         json={"kind": "offer", "payload": "{}"},
     )
     assert denied.status_code == 404
+
+
+def test_reply_edit_delete_search_and_pinned_messages(client):
+    create_account(client, "77001234001", "Функции")
+    chat_id = client.get("/api/chats").get_json()[0]["id"]
+
+    sent = client.post(f"/api/messages/{chat_id}", data={"body": "Найди этот текст"})
+    assert sent.status_code == 201
+    message_id = sent.get_json()["id"]
+
+    reply = client.post(
+        f"/api/messages/{chat_id}",
+        data={"body": "Ответ готов", "reply_to_id": str(message_id)},
+    )
+    assert reply.status_code == 201
+    reply_id = reply.get_json()["id"]
+
+    history = client.get(f"/api/messages/{chat_id}?after=0").get_json()
+    assert history[1]["reply_to_id"] == message_id
+    assert history[1]["reply_body"] == "Найди этот текст"
+
+    edited = client.patch(
+        f"/api/messages/{chat_id}/{message_id}", json={"body": "Изменённый текст"}
+    )
+    assert edited.status_code == 200
+    search = client.get(f"/api/chats/{chat_id}/search?q=Изменённый")
+    assert search.status_code == 200
+    assert search.get_json()[0]["id"] == message_id
+
+    pinned = client.post(
+        f"/api/chats/{chat_id}/pinned", json={"message_id": reply_id}
+    )
+    assert pinned.status_code == 200
+    assert client.get(f"/api/chats/{chat_id}/pinned").get_json()[0]["id"] == reply_id
+
+    deleted = client.delete(f"/api/messages/{chat_id}/{reply_id}")
+    assert deleted.status_code == 200
+    history = client.get(f"/api/messages/{chat_id}?after=0").get_json()
+    assert history[1]["body"] == "Сообщение удалено"
+
+
+def test_read_receipt_and_group_management(tmp_path, monkeypatch):
+    monkeypatch.setattr(messenger_app, "DB_PATH", tmp_path / "features.db")
+    messenger_app.init_db()
+    messenger_app.app.config.update(TESTING=True, SECRET_KEY="test-secret")
+    owner = messenger_app.app.test_client()
+    member = messenger_app.app.test_client()
+    create_account(owner, "77000000901", "Создатель")
+    create_account(member, "77000000902", "Участник")
+
+    member_data = owner.get("/api/users/search?q=Участник").get_json()[0]
+    created = owner.post(
+        "/api/chats/group", json={"title": "Тестовая группа", "user_ids": [member_data["id"]]}
+    )
+    assert created.status_code == 201
+    chat_id = created.get_json()["chat_id"]
+
+    owner.post(f"/api/messages/{chat_id}", data={"body": "Прочитай меня"})
+    member_history = member.get(f"/api/messages/{chat_id}?after=0")
+    assert member_history.status_code == 200
+    receipt = owner.get(f"/api/chats/{chat_id}/read-state")
+    assert receipt.status_code == 200
+    assert receipt.get_json()["last_read_message_id"] >= 1
+
+    renamed = owner.patch(f"/api/chats/{chat_id}/group", json={"title": "Новое имя"})
+    assert renamed.status_code == 200
+    assert renamed.get_json()["title"] == "Новое имя"
