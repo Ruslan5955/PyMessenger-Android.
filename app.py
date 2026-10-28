@@ -334,13 +334,15 @@ def messenger():
     if selected_chat and not any(int(c["id"]) == selected_chat for c in chats):
         selected_chat = None
     selected_direct = False
+    selected_group = False
     if selected_chat:
         with get_db() as con:
             row = con.execute("SELECT is_group FROM chats WHERE id=?", (selected_chat,)).fetchone()
             selected_direct = bool(row and not row["is_group"])
+            selected_group = bool(row and row["is_group"])
     return render_template(
         "messenger.html", user=user, chats=chats, selected_chat=selected_chat,
-        selected_direct=selected_direct
+        selected_direct=selected_direct, selected_group=selected_group
     )
 
 
