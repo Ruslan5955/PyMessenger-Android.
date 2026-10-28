@@ -5,6 +5,7 @@ import sys
 import threading
 import uuid
 import webbrowser
+import requests
 from datetime import datetime, timezone
 from pathlib import Path
 from functools import wraps
@@ -15,6 +16,7 @@ from flask import (
     send_from_directory, session, url_for
 )
 from werkzeug.security import check_password_hash, generate_password_hash
+from cryptography.fernet import Fernet, InvalidToken
 
 # Backward-compatible alias for older code that used camelCase.
 generatePasswordHash = generate_password_hash
@@ -52,6 +54,40 @@ ALLOWED_FILE_EXTENSIONS = {
 
 def now_iso():
     return datetime.now(timezone.utc).isoformat()
+
+
+
+def message_cipher():
+    key = os.environ.get("PYMESSENGER_ENCRYPTION_KEY", "").strip()
+    if not key:
+        return None
+    try:
+        return Fernet(key.encode("ascii"))
+    except (ValueError, TypeError, UnicodeEncodeError):
+        app.logger.error("PYMESSENGER_ENCRYPTION_KEY is invalid; message encryption is disabled.")
+        return None
+
+
+def protect_message_body(body):
+    cipher = message_cipher()
+    if not body or not cipher:
+        return body
+    return "enc:v1:" + cipher.encrypt(body.encode("utf-8")).decode("ascii")
+
+
+def reveal_message_body(body):
+    if not body or not body.startswith("enc:v1:"):
+        return body
+    cipher = message_cipher()
+    if not cipher:
+        return "🔒 Сообщение зашифровано. Добавь прежний PYMESSENGER_ENCRYPTION_KEY на сервер."
+    try:
+        return cipher.decrypt(body[7:].encode("ascii")).decode("utf-8")
+    except (InvalidToken, ValueError, UnicodeEncodeError):
+        app.logger.error("Could not decrypt a message; check PYMESSENGER_ENCRYPTION_KEY.")
+        return "🔒 Не удалось расшифровать сообщение: проверь ключ шифрования."
+
+
 
 
 @contextmanager
@@ -289,6 +325,8 @@ def list_chats(user_id):
                     title, avatar = other["display_name"], other["avatar"]
                     subtitle = "Личный чат"
             preview = row["last_body"] or (row["last_file"] or "")
+            if preview.startswith("enc:v1:"):
+                preview = "🔒 Зашифрованное сообщение"
             output.append({
                 "id": row["id"], "title": title, "avatar": avatar,
                 "is_group": row["is_group"], "subtitle": subtitle,
@@ -450,7 +488,10 @@ def api_messages(chat_id):
                 FROM messages m JOIN users u ON u.id=m.sender_id
                 WHERE m.chat_id=? AND m.id>? ORDER BY m.id ASC LIMIT 200
             """, (chat_id, max(after, 0))).fetchall()
-            return jsonify([dict(row) for row in rows])
+            messages = [dict(row) for row in rows]
+            for message in messages:
+                message["body"] = reveal_message_body(message["body"])
+            return jsonify(messages)
 
         body = (request.form.get("body") or "").strip()
         upload = request.files.get("file")
@@ -476,14 +517,57 @@ def api_messages(chat_id):
         cur = con.execute("""
             INSERT INTO messages(chat_id,sender_id,body,attachment,attachment_name,attachment_kind,created_at)
             VALUES(?,?,?,?,?,?,?)
-        """, (chat_id, user_id, body, attachment, attachment_name, attachment_kind, now_iso()))
+        """, (chat_id, user_id, protect_message_body(body), attachment, attachment_name, attachment_kind, now_iso()))
         msg_id = cur.lastrowid
         row = con.execute("""
             SELECT m.id,m.chat_id,m.sender_id,m.body,m.attachment,m.attachment_name,
                    m.attachment_kind,m.created_at,u.username,u.display_name,u.avatar
             FROM messages m JOIN users u ON u.id=m.sender_id WHERE m.id=?
         """, (msg_id,)).fetchone()
-    return jsonify(dict(row)), 201
+
+    result = dict(row)
+    result["body"] = reveal_message_body(result["body"])
+    return jsonify(result), 201
+
+
+@app.post("/api/assistant")
+@login_required
+def api_assistant():
+    data = request.get_json(silent=True) or {}
+    message = (data.get("message") or "").strip()
+    if not message:
+        return jsonify({"error": "Напиши вопрос для помощника."}), 400
+    if len(message) > 4000:
+        return jsonify({"error": "Сообщение слишком длинное (максимум 4000 символов)."}), 400
+    api_key = os.environ.get("OPENAI_API_KEY", "").strip()
+    if not api_key:
+        return jsonify({"error": "AI пока не настроен. Добавь OPENAI_API_KEY в Environment на Render, затем перезапусти сервис."}), 503
+    base_url = os.environ.get("OPENAI_BASE_URL", "https://api.openai.com/v1").rstrip("/")
+    model = os.environ.get("OPENAI_MODEL", "gpt-4o-mini").strip() or "gpt-4o-mini"
+    try:
+        response = requests.post(
+            base_url + "/chat/completions",
+            headers={"Authorization": "Bearer " + api_key, "Content-Type": "application/json"},
+            json={"model": model, "messages": [
+                {"role": "system", "content": "Ты Gloria AI — дружелюбный помощник, встроенный в мессенджер PyMessenger. Отвечай на языке пользователя, обычно по-русски. Будь полезным, ясным и не выдумывай факты."},
+                {"role": "user", "content": message}
+            ], "temperature": 0.7},
+            timeout=45,
+        )
+        if response.status_code >= 400:
+            app.logger.warning("AI provider returned HTTP %s", response.status_code)
+            return jsonify({"error": "AI-провайдер отклонил запрос. Проверь API-ключ, модель и лимит аккаунта."}), 502
+        payload = response.json()
+        reply = payload["choices"][0]["message"]["content"]
+        if not isinstance(reply, str) or not reply.strip():
+            raise ValueError("Empty assistant response")
+        return jsonify({"reply": reply.strip()})
+    except requests.RequestException:
+        app.logger.exception("AI provider request failed")
+        return jsonify({"error": "Не удалось связаться с AI-провайдером. Проверь интернет сервера."}), 502
+    except (ValueError, KeyError, IndexError, TypeError):
+        app.logger.exception("Unexpected AI provider response")
+        return jsonify({"error": "AI вернул ответ в неожиданном формате."}), 502
 
 
 @app.get("/api/calls/config")
