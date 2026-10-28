@@ -1,6 +1,7 @@
 import os
 import re
 import sqlite3
+import sys
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
@@ -15,8 +16,13 @@ from werkzeug.security import check_password_hash, generate_password_hash
 from werkzeug.utils import secure_filename
 
 BASE_DIR = Path(__file__).resolve().parent
-INSTANCE_DIR = Path(os.environ.get("PYMESSENGER_INSTANCE", BASE_DIR / "instance"))
-UPLOAD_DIR = Path(os.environ.get("PYMESSENGER_UPLOADS", BASE_DIR / "uploads"))
+# Keep writable data outside the temporary PyInstaller bundle on Windows.
+if getattr(sys, "frozen", False):
+    DATA_DIR = Path(os.environ.get("LOCALAPPDATA", Path.home())) / "PyMessenger"
+else:
+    DATA_DIR = BASE_DIR
+INSTANCE_DIR = Path(os.environ.get("PYMESSENGER_INSTANCE", DATA_DIR / "instance"))
+UPLOAD_DIR = Path(os.environ.get("PYMESSENGER_UPLOADS", DATA_DIR / "uploads"))
 AVATAR_DIR = UPLOAD_DIR / "avatars"
 FILE_DIR = UPLOAD_DIR / "files"
 for folder in (INSTANCE_DIR, AVATAR_DIR, FILE_DIR):
