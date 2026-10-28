@@ -13,10 +13,12 @@ jobs:
   build-windows:
     runs-on: windows-latest
     steps:
-      - name: Checkout source
-        uses: actions/checkout@v4
-        with:
-          path: source
+      # The repository name ends in a dot, which Windows cannot use as a folder name.
+      # Clone to a clean folder outside the runner's default workspace path.
+      - name: Download source
+        shell: pwsh
+        working-directory: D:\a
+        run: git clone --depth 1 https://github.com/Ruslan5955/PyMessenger-Android..git pymessenger-src
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -25,11 +27,11 @@ jobs:
           architecture: 'x64'
 
       - name: Install build dependencies
-        working-directory: source
+        working-directory: D:\a\pymessenger-src
         run: python -m pip install --upgrade pip Flask pyinstaller
 
       - name: Package Windows executable
-        working-directory: source
+        working-directory: D:\a\pymessenger-src
         shell: pwsh
         run: |
           pyinstaller --noconfirm --clean --onefile --name PyMessenger --add-data "templates;templates" --add-data "static;static" app.py
@@ -53,7 +55,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: PyMessenger-Windows-x64
-          path: source/dist/PyMessenger-Windows-x64.zip
+          path: D:\a\pymessenger-src\dist\PyMessenger-Windows-x64.zip
           if-no-files-found: error
           retention-days: 30
 
@@ -61,5 +63,5 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
         with:
-          files: source/dist/PyMessenger-Windows-x64.zip
+          files: D:\a\pymessenger-src\dist\PyMessenger-Windows-x64.zip
           generate_release_notes: true
