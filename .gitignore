@@ -1,0 +1,13 @@
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+instance/
+uploads/
+.env
+build/
+.gradle/
+local.properties
+*.apk
+*.aab
