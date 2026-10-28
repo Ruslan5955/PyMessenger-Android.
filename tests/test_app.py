@@ -86,3 +86,39 @@ def test_wrong_password_is_rejected(client):
         data={"phone": "77009998877", "password": "wrong-password"},
     )
     assert response.status_code == 401
+
+
+
+def test_call_signals_are_delivered_only_to_the_other_user(tmp_path, monkeypatch):
+    monkeypatch.setattr(messenger_app, "DB_PATH", tmp_path / "calls.db")
+    messenger_app.init_db()
+    messenger_app.app.config.update(TESTING=True, SECRET_KEY="test-secret")
+    caller = messenger_app.app.test_client()
+    callee = messenger_app.app.test_client()
+    create_account(caller, "77000000101", "Звонящий")
+    create_account(callee, "77000000102", "Получатель")
+
+    other_user = caller.get("/api/users/search?q=Получатель").get_json()[0]
+    response = caller.post("/api/chats/direct", json={"user_id": other_user["id"]})
+    assert response.status_code == 201
+    chat_id = response.get_json()["chat_id"]
+
+    sent = caller.post(
+        f"/api/calls/{chat_id}/signal",
+        json={"kind": "offer", "payload": '{"sdp":"test-offer"}'},
+    )
+    assert sent.status_code == 200
+    inbox = callee.get("/api/calls/poll?after=0")
+    assert inbox.status_code == 200
+    signals = inbox.get_json()["signals"]
+    assert len(signals) == 1
+    assert signals[0]["kind"] == "offer"
+    assert signals[0]["chat_id"] == chat_id
+    assert signals[0]["from_name"] == "Звонящий"
+
+    # A user cannot send a call signal to a chat they are not a member of.
+    denied = caller.post(
+        f"/api/calls/{chat_id + 999}/signal",
+        json={"kind": "offer", "payload": "{}"},
+    )
+    assert denied.status_code == 404
