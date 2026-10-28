@@ -12,9 +12,12 @@ permissions:
 jobs:
   build-windows:
     runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: [ x64, x86 ]
     steps:
       # The repository name ends in a dot, which Windows cannot use as a folder name.
-      # Clone to a clean folder outside the runner's default workspace path.
       - name: Download source
         shell: pwsh
         working-directory: D:\a
@@ -24,7 +27,7 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-          architecture: 'x64'
+          architecture: ${{ matrix.arch }}
 
       - name: Install build dependencies
         working-directory: D:\a\pymessenger-src
@@ -36,26 +39,27 @@ jobs:
         run: |
           pyinstaller --noconfirm --clean --onefile --name PyMessenger --add-data "templates;templates" --add-data "static;static" app.py
           @"
-          PyMessenger for Windows x64
+          PyMessenger for Windows ${{ matrix.arch }}
 
           1. Extract this ZIP to a folder you can write to.
           2. Double-click PyMessenger.exe.
-          3. Keep the black console window open while using the messenger.
-          4. Open http://127.0.0.1:5000 in your browser.
-          5. Create an account with your phone number and a password.
+          3. The messenger should open in your browser automatically.
+          4. If it does not, open http://127.0.0.1:5000 manually.
+          5. Keep the black console window open while using the messenger.
+          6. Create an account with your phone number and a password.
 
           Your local database and uploaded files are saved under:
           %LOCALAPPDATA%\PyMessenger
 
           This is a local Windows build. It does not by itself publish the messenger to the internet or provide a shared online server.
           "@ | Set-Content -Encoding utf8 dist\README-Windows.txt
-          Compress-Archive -Path dist\PyMessenger.exe,dist\README-Windows.txt -DestinationPath dist\PyMessenger-Windows-x64.zip -Force
+          Compress-Archive -Path dist\PyMessenger.exe,dist\README-Windows.txt -DestinationPath dist\PyMessenger-Windows-${{ matrix.arch }}.zip -Force
 
       - name: Upload Windows ZIP artifact
         uses: actions/upload-artifact@v4
         with:
-          name: PyMessenger-Windows-x64
-          path: D:\a\pymessenger-src\dist\PyMessenger-Windows-x64.zip
+          name: PyMessenger-Windows-${{ matrix.arch }}
+          path: D:\a\pymessenger-src\dist\PyMessenger-Windows-${{ matrix.arch }}.zip
           if-no-files-found: error
           retention-days: 30
 
@@ -63,5 +67,5 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
         with:
-          files: D:\a\pymessenger-src\dist\PyMessenger-Windows-x64.zip
+          files: D:\a\pymessenger-src\dist\PyMessenger-Windows-${{ matrix.arch }}.zip
           generate_release_notes: true
