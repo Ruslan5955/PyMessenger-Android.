@@ -1,35 +1,37 @@
 name: Python Messenger CI
+
 on:
   push:
-    branches: [ "main" ]
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
   workflow_dispatch:
+
+permissions:
+  contents: read
+
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-    - name: Set up Python
-      uses: actions/setup-python@v5
-      with:
-        python-version: '3.11'
-    - name: Cache pip dependencies
-      uses: actions/cache@v4
-      with:
-        path: ~/.cache/pip
-        key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
-        restore-keys: |
-          ${{ runner.os }}-pip-
-    - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        if [ -f PyMessenger_Pro/requirements.txt ]; then pip install -r PyMessenger_Pro/requirements.txt; fi
-        if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
-    - name: Run tests with pytest
-      run: |
-        pip install pytest
-        pytest || echo "Тесты пока не настроены"
+      - name: Checkout code
+        uses: actions/checkout@v4
 
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: requirements.txt
 
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt pytest
 
+      - name: Check Python syntax
+        run: python -m compileall -q app.py tests
 
+      - name: Run tests
+        run: pytest -q
