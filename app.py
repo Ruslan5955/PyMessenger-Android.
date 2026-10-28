@@ -567,7 +567,7 @@ if __name__ == "__main__":
     if getattr(sys, "frozen", False):
         threading.Timer(1.2, lambda: webbrowser.open("http://127.0.0.1:5000")).start()
     app.run(
-        host=os.environ.get("PYMESSENGER_HOST", "127.0.0.1"),
+        host=os.environ.get("PYMESSENGER_HOST", "0.0.0.0"),
         port=int(os.environ.get("PORT", "5000")),
         debug=os.environ.get("FLASK_DEBUG", "0") == "1",
     )
