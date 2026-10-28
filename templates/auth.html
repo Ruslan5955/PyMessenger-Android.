@@ -2,29 +2,33 @@
 <html lang="ru">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Life and Lion</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>PyMessenger — вход</title>
   <style>
-    body { background-color: #070c10; color: #e9edef; font-family: sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
-    .card { background: #0b141a; padding: 30px; border-radius: 12px; text-align: center; width: 100%; max-width: 360px; border: 1px solid #2f3b43; }
-    h1 { color: #FFD700; margin: 0 0 10px 0; }
-    input { width: 100%; padding: 12px; margin: 10px 0; background: #15202b; border: 1px solid #2f3b43; border-radius: 6px; color: white; box-sizing: border-box; }
-    button { width: 100%; padding: 12px; background: #FFD700; border: none; border-radius: 6px; color: #070c10; font-weight: bold; cursor: pointer; margin-top: 10px; }
-    .tabs a { color: #8696a0; text-decoration: none; margin: 0 10px; font-weight: bold; }
-    .tabs a.active { color: #FFD700; border-bottom: 2px solid #FFD700; }
+    * { box-sizing: border-box; }
+    body { background: #070c10; color: #e9edef; font-family: system-ui, sans-serif; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; padding: 18px; }
+    .card { background: #0b141a; padding: 30px; border-radius: 16px; text-align: center; width: 100%; max-width: 380px; border: 1px solid #2f3b43; }
+    h1 { color: #57d9b0; margin: 0 0 8px; } p { color: #a8b5bd; font-size: 14px; line-height: 1.5; }
+    input { width: 100%; padding: 12px; margin: 8px 0; background: #15202b; border: 1px solid #2f3b43; border-radius: 8px; color: white; }
+    button { width: 100%; padding: 12px; background: #00a884; border: none; border-radius: 8px; color: #06120f; font-weight: 700; cursor: pointer; margin-top: 12px; }
+    .notice { padding: 10px; margin: 12px 0; border-radius: 8px; background: #342126; color: #ffb7bd; font-size: 14px; }
+    .hint { font-size: 12px; color: #82929c; margin-top: 14px; }
   </style>
 </head>
 <body>
 <div class="card">
-  <h1>🦁 LIFE AND LION</h1>
-  <div class="tabs" style="margin-bottom: 20px;">
-    <a class="active" href="{{ url_for('login') }}">Вход / Регистрация</a>
-  </div>
+  <h1>✦ PyMessenger</h1>
+  <p>Войди в аккаунт или создай его, введя номер телефона и пароль.</p>
+  {% with messages = get_flashed_messages() %}
+    {% for message in messages %}<div class="notice">{{ message }}</div>{% endfor %}
+  {% endwith %}
   <form method="post" action="{{ url_for('login') }}">
-    <input type="tel" name="phone" placeholder="Номер телефона" required>
-    <input type="password" name="password" placeholder="Пароль" required>
-    <button type="submit">ПРОДОЛЖИТЬ</button>
+    <input type="tel" name="phone" placeholder="Номер телефона" autocomplete="tel" required>
+    <input type="text" name="display_name" placeholder="Имя (для нового аккаунта)" maxlength="40" autocomplete="nickname">
+    <input type="password" name="password" placeholder="Пароль (минимум 6 символов)" minlength="6" autocomplete="current-password" required>
+    <button type="submit">Продолжить</button>
   </form>
+  <div class="hint">Для нового аккаунта придумай пароль и сохрани его. Для входа используй тот же номер и пароль.</div>
 </div>
 </body>
 </html>
