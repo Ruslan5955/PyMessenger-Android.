@@ -1,6 +1,7 @@
 (() => {
 const cfg = window.PYMESSENGER || {};
 let activeChat = cfg.selectedChat;
+let replyingTo = null;
 let lastMessageId = 0;
 let pollTimer = null;
 let mediaRecorder = null;
@@ -46,24 +47,28 @@ async function loadChats() {
 }
 function renderMessage(m) {
   const mine = Number(m.sender_id) === Number(cfg.userId);
+  const deleted = Boolean(m.deleted_at);
   let attachment = '';
-  if (m.attachment) {
-    const url = `/uploads/files/${encodeURIComponent(m.attachment)}`;
-    if (m.attachment_kind === 'image') {
-      attachment = `<a class="attachment" href="${url}" target="_blank" rel="noopener"><img src="${url}" alt="${esc(m.attachment_name)}"></a>`;
+  if (m.attachment && !deleted) {
+    const url = '/uploads/files/' + encodeURIComponent(m.attachment);
+    if (m.attachment_kind === 'image' || m.attachment_kind === 'gif' || m.attachment_kind === 'sticker') {
+      attachment = '<a class="attachment" href="' + url + '" target="_blank" rel="noopener"><img src="' + url + '" alt="' + esc(m.attachment_name) + '"></a>';
     } else if (m.attachment_kind === 'audio') {
-      attachment = `<div class="attachment"><audio controls preload="none" src="${url}"></audio><a href="${url}" download="${esc(m.attachment_name)}">${esc(m.attachment_name)}</a></div>`;
+      attachment = '<div class="attachment"><audio controls preload="none" src="' + url + '"></audio><a href="' + url + '" download="' + esc(m.attachment_name) + '">' + esc(m.attachment_name) + '</a></div>';
     } else {
-      attachment = `<a class="attachment" href="${url}" download="${esc(m.attachment_name)}"><span class="file-chip"><span>📎</span><span>${esc(m.attachment_name)}<small>Нажми, чтобы скачать</small></span></span></a>`;
+      attachment = '<a class="attachment" href="' + url + '" download="' + esc(m.attachment_name) + '"><span class="file-chip"><span>📎</span><span>' + esc(m.attachment_name) + '<small>Нажми, чтобы скачать</small></span></span></a>';
     }
   }
   const reactions = String(m.reactions || '').split(',').filter(Boolean).map(item => { const p=item.split(':'); return {emoji:p[0],count:Number(p[1])||0}; });
-  const reactionBar = ['❤️','😂','👍','🔥','😮'].map(emoji => { const r=reactions.find(x=>x.emoji===emoji); return `<button type="button" class="reaction-btn ${r?'has-reaction':''}" data-reaction="${emoji}" data-message-id="${m.id}" aria-label="Реакция ${emoji}">${emoji}<span>${r?r.count:0}</span></button>`; }).join('');
-  return `<div class="message-row ${mine?'mine':''}" data-message-id="${m.id}">
-    ${mine?'':avatarHtml(m.avatar,m.display_name)}
-    <div class="bubble">${mine?'':`<div class="sender">${esc(m.display_name)} · @${esc(m.username)}</div>`}
-      ${m.body ? `<div class="message-text">${esc(m.body)}</div>` : ''}${attachment}
-      <div class="message-time">${timeLabel(m.created_at)}</div><div class="reaction-bar">${reactionBar}</div></div></div>`;
+  const reactionBar = ['❤️','😂','👍','🔥','😮'].map(emoji => { const r=reactions.find(x=>x.emoji===emoji); return '<button type="button" class="reaction-btn '+(r?'has-reaction':'')+'" data-reaction="'+emoji+'" data-message-id="'+m.id+'" aria-label="Реакция '+emoji+'">'+emoji+'<span>'+(r?r.count:0)+'</span></button>'; }).join('');
+  const reply = m.reply_to_id ? '<button type="button" class="reply-quote" data-jump-message="'+m.reply_to_id+'"><strong>'+esc(m.reply_sender||'Ответ на сообщение')+'</strong><span>'+esc(m.reply_body||'Сообщение удалено')+'</span></button>' : '';
+  const tools = deleted ? '' : '<div class="message-actions"><button type="button" data-reply="'+m.id+'" title="Ответить">↩</button>'+(mine?'<button type="button" data-edit="'+m.id+'" title="Изменить">✎</button><button type="button" data-delete="'+m.id+'" title="Удалить">×</button>':'')+'<button type="button" data-pin="'+m.id+'" title="'+(m.is_pinned?'Открепить':'Закрепить')+'">'+(m.is_pinned?'📌':'⚑')+'</button></div>';
+  const stamp = timeLabel(m.created_at)+(m.edited_at?' · изменено':'')+(mine?(m.is_read?' · ✓✓':' · ✓'):'');
+  return '<div class="message-row '+(mine?'mine':'')+(m.is_pinned?' pinned-message':'')+'" data-message-id="'+m.id+'">'+
+    (mine?'':avatarHtml(m.avatar,m.display_name))+
+    '<div class="bubble">'+(mine?'':'<div class="sender">'+esc(m.display_name)+' · @'+esc(m.username)+'</div>')+
+    reply+(m.body?'<div class="message-text">'+esc(m.body)+'</div>':'')+attachment+
+    '<div class="message-time">'+stamp+'</div><div class="reaction-bar">'+reactionBar+'</div>'+tools+'</div></div>';
 }
 async function fetchMessages(initial=false) {
   if (!activeChat || !$('messages')) return;
@@ -99,14 +104,88 @@ async function submitMessage(body='', file=null) {
   const form = new FormData();
   if (body.trim()) form.append('body', body.trim());
   if (file) form.append('file', file, file.name || 'voice-message.webm');
+  if (replyingTo) form.append('reply_to_id', String(replyingTo.id));
   try {
-    const res = await fetch(`/api/messages/${activeChat}`, {method:'POST', body:form});
+    const res = await fetch('/api/messages/'+activeChat, {method:'POST', body:form});
     const data = await res.json();
     if (!res.ok) return showError(data.error || 'Не удалось отправить сообщение.');
     if ($('messageInput')) $('messageInput').value = '';
     if ($('fileInput')) $('fileInput').value = '';
-    await fetchMessages();
+    clearReply();
+    if ($('stickerPanel')) $('stickerPanel').hidden = true;
+    await fetchMessages(true);
   } catch { showError('Не удалось связаться с сервером.'); }
+}
+function setReply(id) {
+  const row=$('messages')?.querySelector('[data-message-id="'+id+'"]');
+  if(!row)return;
+  const text=row.querySelector('.message-text')?.textContent||row.querySelector('.attachment')?.textContent||'Сообщение';
+  const author=row.querySelector('.sender')?.textContent||'Вы';
+  replyingTo={id:Number(id),text,author};
+  if($('replyPreviewText'))$('replyPreviewText').textContent=author+': '+text;
+  if($('replyPreview'))$('replyPreview').hidden=false;
+  $('messageInput')?.focus();
+}
+function clearReply(){replyingTo=null;if($('replyPreview'))$('replyPreview').hidden=true;}
+async function apiJson(url,method='GET',body=null){
+  const opts={method,headers:{}};
+  if(body!==null){opts.headers['Content-Type']='application/json';opts.body=JSON.stringify(body);}
+  const res=await fetch(url,opts);const data=await res.json().catch(()=>({}));
+  if(!res.ok)throw new Error(data.error||'Не удалось выполнить действие.');
+  return data;
+}
+async function togglePin(id){
+  try{await apiJson('/api/chats/'+activeChat+'/pinned','POST',{message_id:Number(id)});await fetchMessages(true);if(!$('pinnedPanel').hidden)await loadPinned();}
+  catch(e){showError(e.message);}
+}
+async function loadPinned(){
+  try{
+    const rows=await apiJson('/api/chats/'+activeChat+'/pinned');
+    $('pinnedResults').innerHTML=rows.length?rows.map(m=>'<button type="button" class="pinned-result" data-jump-message="'+m.id+'"><strong>'+esc(m.display_name)+'</strong><span>'+esc(m.body||'Вложение')+'</span></button>').join(''):'<p class="muted">Пока ничего не закреплено.</p>';
+  }catch(e){showError(e.message);}
+}
+async function searchMessages(q){
+  const target=$('messageSearchResults');if(!target)return;
+  if(q.trim().length<2){target.innerHTML='';return;}
+  try{
+    const rows=await apiJson('/api/chats/'+activeChat+'/search?q='+encodeURIComponent(q));
+    target.innerHTML=rows.length?rows.map(m=>'<button type="button" class="search-message-result" data-jump-message="'+m.id+'"><strong>'+esc(m.display_name)+' · '+timeLabel(m.created_at)+'</strong><span>'+esc(m.body)+'</span></button>').join(''):'<p class="muted">Ничего не найдено.</p>';
+  }catch(e){target.innerHTML='<p class="muted">'+esc(e.message)+'</p>';}
+}
+async function manageGroup(){
+  if(!activeChat)return;
+  try{
+    const info=await apiJson('/api/chats/'+activeChat+'/group');
+    const names=info.members.map(m=>m.display_name+' (@'+m.username+')'+(m.is_owner?' — создатель':'')).join('\n');
+    const action=prompt('Группа: '+info.title+'\n\nУчастники:\n'+names+'\n\nВведи действие: rename — переименовать, add — добавить участника, remove — удалить участника, leave — выйти из группы');
+    if(!action)return;
+    if(action.toLowerCase()==='rename'){
+      if(!info.is_owner)return showError('Название может менять только создатель группы.');
+      const title=prompt('Новое название группы',info.title);if(!title)return;
+      await apiJson('/api/chats/'+activeChat+'/group','PATCH',{title});
+    }else if(action.toLowerCase()==='add'){
+      if(!info.is_owner)return showError('Добавлять участников может только создатель.');
+      const username=prompt('Введи имя или логин пользователя (минимум 2 символа)');if(!username)return;
+      const matches=await apiJson('/api/users/search?q='+encodeURIComponent(username));
+      if(!matches.length)return showError('Пользователь не найден.');
+      const chosen=matches.length===1?matches[0]:matches.find(u=>u.username.toLowerCase()===username.replace(/^@/,'').toLowerCase())||matches[0];
+      if(!confirm('Добавить '+chosen.display_name+' (@'+chosen.username+')?'))return;
+      await apiJson('/api/chats/'+activeChat+'/members','POST',{user_id:chosen.id});
+    }else if(action.toLowerCase()==='remove'){
+      if(!info.is_owner)return showError('Удалять участников может только создатель.');
+      const username=prompt('Введи логин участника, которого удалить');if(!username)return;
+      const member=info.members.find(m=>m.username.toLowerCase()===username.replace(/^@/,'').toLowerCase());
+      if(!member)return showError('Участник с таким логином не найден.');
+      if(!confirm('Удалить '+member.display_name+' из группы?'))return;
+      await apiJson('/api/chats/'+activeChat+'/members/'+member.id,'DELETE');
+    }else if(action.toLowerCase()==='leave'){
+      if(!confirm('Выйти из этой группы?'))return;
+      await apiJson('/api/chats/'+activeChat+'/leave','POST');
+      window.location.href='/messenger';return;
+    }else{return showError('Неизвестное действие.');}
+    await loadChats();
+    showError('Настройки группы обновлены.');
+  }catch(e){showError(e.message);}
 }
 
 function callStatus(text) { const el=$('callStatus'); if(el) el.textContent=text; }
@@ -259,6 +338,43 @@ document.addEventListener('DOMContentLoaded',()=>{
   $('createGroupBtn')?.addEventListener('click',createGroup);
   $('chatSearch')?.addEventListener('input',e=>{const q=e.target.value.toLowerCase();document.querySelectorAll('.chat-item').forEach(el=>el.style.display=el.innerText.toLowerCase().includes(q)?'':'none');});
   $('refreshBtn')?.addEventListener('click',()=>fetchMessages(true));
+  $('messageSearchToggle')?.addEventListener('click',()=>{const panel=$('messageSearchPanel');panel.hidden=!panel.hidden;if(!panel.hidden)$('messageSearchInput')?.focus();});
+  $('messageSearchInput')?.addEventListener('input',e=>searchMessages(e.target.value));
+  $('pinnedToggle')?.addEventListener('click',async()=>{const panel=$('pinnedPanel');panel.hidden=!panel.hidden;if(!panel.hidden)await loadPinned();});
+  $('groupManageBtn')?.addEventListener('click',manageGroup);
+  $('stickerBtn')?.addEventListener('click',()=>{if($('stickerPanel'))$('stickerPanel').hidden=!$('stickerPanel').hidden;});
+  $('stickerPanel')?.addEventListener('click',e=>{const b=e.target.closest('[data-sticker]');if(b)submitMessage(b.dataset.sticker);});
+  $('gifUploadBtn')?.addEventListener('click',()=>$('fileInput')?.click());
+  $('cancelReplyBtn')?.addEventListener('click',clearReply);
+  $('messages')?.addEventListener('click',async e=>{
+    const reaction=e.target.closest('[data-reaction][data-message-id]');
+    if(reaction){
+      reaction.disabled=true;
+      try{
+        const data=await apiJson('/api/messages/'+activeChat+'/'+reaction.dataset.messageId+'/reactions','POST',{emoji:reaction.dataset.reaction});
+        const bar=reaction.closest('.reaction-bar');
+        bar.querySelectorAll('.reaction-btn').forEach(b=>{b.classList.remove('has-reaction');b.querySelector('span').textContent='0';});
+        (data.reactions||[]).forEach(r=>{const b=[...bar.querySelectorAll('.reaction-btn')].find(x=>x.dataset.reaction===r.emoji);if(b){b.classList.add('has-reaction');b.querySelector('span').textContent=r.count;}});
+      }catch(err){showError(err.message);}finally{reaction.disabled=false;}
+      return;
+    }
+    const reply=e.target.closest('[data-reply]');
+    if(reply){setReply(reply.dataset.reply);return;}
+    const edit=e.target.closest('[data-edit]');
+    if(edit){
+      const row=edit.closest('.message-row');const current=row?.querySelector('.message-text')?.textContent||'';
+      const body=prompt('Изменить сообщение',current);if(body===null)return;
+      try{await apiJson('/api/messages/'+activeChat+'/'+edit.dataset.edit,'PATCH',{body});await fetchMessages(true);}catch(err){showError(err.message);}
+      return;
+    }
+    const del=e.target.closest('[data-delete]');
+    if(del){if(!confirm('Удалить это сообщение?'))return;try{await apiJson('/api/messages/'+activeChat+'/'+del.dataset.delete,'DELETE');await fetchMessages(true);}catch(err){showError(err.message);}return;}
+    const pin=e.target.closest('[data-pin]');
+    if(pin){await togglePin(pin.dataset.pin);return;}
+    const jump=e.target.closest('[data-jump-message]');
+    if(jump){const id=jump.dataset.jumpMessage;const target=$('messages')?.querySelector('[data-message-id="'+id+'"]');if(target){target.scrollIntoView({behavior:'smooth',block:'center'});target.classList.add('message-highlight');setTimeout(()=>target.classList.remove('message-highlight'),1400);}else{await fetchMessages(true);$('messages')?.querySelector('[data-message-id="'+id+'"]')?.scrollIntoView({behavior:'smooth',block:'center'});}return;}
+  });
+
   $('messages')?.addEventListener('click',async e=>{
     const btn=e.target.closest('[data-reaction][data-message-id]');
     if(!btn)return;
