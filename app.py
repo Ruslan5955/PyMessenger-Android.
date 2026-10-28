@@ -145,6 +145,17 @@ def init_db():
             FOREIGN KEY(sender_id) REFERENCES users(id) ON DELETE CASCADE
         );
         CREATE INDEX IF NOT EXISTS idx_messages_chat_id ON messages(chat_id, id);
+        CREATE TABLE IF NOT EXISTS message_reactions (
+            message_id INTEGER NOT NULL,
+            user_id INTEGER NOT NULL,
+            emoji TEXT NOT NULL,
+            created_at TEXT NOT NULL,
+            PRIMARY KEY(message_id,user_id,emoji),
+            FOREIGN KEY(message_id) REFERENCES messages(id) ON DELETE CASCADE,
+            FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
+        );
+        CREATE INDEX IF NOT EXISTS idx_reactions_message ON message_reactions(message_id);
+
         CREATE TABLE IF NOT EXISTS call_signals (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             chat_id INTEGER NOT NULL,
@@ -498,7 +509,7 @@ def api_messages(chat_id):
             after = request.args.get("after", default=0, type=int)
             rows = con.execute("""
                 SELECT m.id,m.chat_id,m.sender_id,m.body,m.attachment,m.attachment_name,
-                       m.attachment_kind,m.created_at,u.username,u.display_name,u.avatar
+                       m.attachment_kind,m.created_at,u.username,u.display_name,u.avatar,COALESCE((SELECT group_concat(emoji || ':' || cnt, ',') FROM (SELECT emoji,COUNT(*) AS cnt FROM message_reactions WHERE message_id=m.id GROUP BY emoji)), '') AS reactions
                 FROM messages m JOIN users u ON u.id=m.sender_id
                 WHERE m.chat_id=? AND m.id>? ORDER BY m.id ASC LIMIT 200
             """, (chat_id, max(after, 0))).fetchall()
@@ -535,7 +546,7 @@ def api_messages(chat_id):
         msg_id = cur.lastrowid
         row = con.execute("""
             SELECT m.id,m.chat_id,m.sender_id,m.body,m.attachment,m.attachment_name,
-                   m.attachment_kind,m.created_at,u.username,u.display_name,u.avatar
+                   m.attachment_kind,m.created_at,u.username,u.display_name,u.avatar,COALESCE((SELECT group_concat(emoji || ':' || cnt, ',') FROM (SELECT emoji,COUNT(*) AS cnt FROM message_reactions WHERE message_id=m.id GROUP BY emoji)), '') AS reactions
             FROM messages m JOIN users u ON u.id=m.sender_id WHERE m.id=?
         """, (msg_id,)).fetchone()
 
@@ -543,6 +554,38 @@ def api_messages(chat_id):
     result["body"] = reveal_message_body(result["body"])
     return jsonify(result), 201
 
+
+@app.route("/api/messages/<int:chat_id>/<int:message_id>/reactions", methods=["GET", "POST"])
+@login_required
+def message_reactions(chat_id, message_id):
+    user_id = session["user_id"]
+    allowed = {"❤️", "😂", "👍", "🔥", "😮"}
+    with get_db() as con:
+        if not chat_member(con, chat_id, user_id):
+            return jsonify({"error": "Чат не найден."}), 404
+        if not con.execute("SELECT 1 FROM messages WHERE id=? AND chat_id=?", (message_id, chat_id)).fetchone():
+            return jsonify({"error": "Сообщение не найдено."}), 404
+        if request.method == "POST":
+            data = request.get_json(silent=True) or {}
+            emoji = data.get("emoji")
+            if emoji not in allowed:
+                return jsonify({"error": "Неизвестная реакция."}), 400
+            exists = con.execute(
+                "SELECT 1 FROM message_reactions WHERE message_id=? AND user_id=? AND emoji=?",
+                (message_id, user_id, emoji)
+            ).fetchone()
+            if exists:
+                con.execute("DELETE FROM message_reactions WHERE message_id=? AND user_id=? AND emoji=?",
+                            (message_id, user_id, emoji))
+            else:
+                con.execute("INSERT INTO message_reactions(message_id,user_id,emoji,created_at) VALUES(?,?,?,?)",
+                            (message_id, user_id, emoji, now_iso()))
+        rows = con.execute("""
+            SELECT emoji,COUNT(*) AS count,
+                   MAX(CASE WHEN user_id=? THEN 1 ELSE 0 END) AS mine
+            FROM message_reactions WHERE message_id=? GROUP BY emoji
+        """, (user_id, message_id)).fetchall()
+    return jsonify({"reactions": [dict(row) for row in rows]})
 
 
 @app.get("/api/calls/config")
