@@ -15,6 +15,9 @@ from flask import (
     send_from_directory, session, url_for
 )
 from werkzeug.security import check_password_hash, generate_password_hash
+
+# Backward-compatible alias for older code that used camelCase.
+generatePasswordHash = generate_password_hash
 from werkzeug.utils import secure_filename
 
 BASE_DIR = Path(__file__).resolve().parent
