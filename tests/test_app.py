@@ -1,0 +1,84 @@
+import pytest
+
+import app as messenger_app
+
+
+@pytest.fixture()
+def client(tmp_path, monkeypatch):
+    monkeypatch.setattr(messenger_app, "DB_PATH", tmp_path / "test.db")
+    messenger_app.init_db()
+    messenger_app.app.config.update(TESTING=True, SECRET_KEY="test-secret")
+    with messenger_app.app.test_client() as test_client:
+        yield test_client
+
+
+def create_account(client, phone, display_name):
+    return client.post(
+        "/login",
+        data={
+            "phone": phone,
+            "password": "test-password-123",
+            "display_name": display_name,
+        },
+        follow_redirects=True,
+    )
+
+
+def test_login_creates_saved_chat_and_sends_message(client):
+    response = create_account(client, "77001234567", "Тестовый пользователь")
+    assert response.status_code == 200
+    chats = client.get("/api/chats")
+    assert chats.status_code == 200
+    chat_list = chats.get_json()
+    assert len(chat_list) == 1
+    chat_id = chat_list[0]["id"]
+
+    sent = client.post(f"/api/messages/{chat_id}", data={"body": "Привет!"})
+    assert sent.status_code == 201
+    assert sent.get_json()["body"] == "Привет!"
+
+    received = client.get(f"/api/messages/{chat_id}?after=0")
+    assert received.status_code == 200
+    assert [message["body"] for message in received.get_json()] == ["Привет!"]
+
+
+def test_api_requires_login(client):
+    response = client.get("/api/chats")
+    assert response.status_code == 401
+    assert response.get_json()["error"]
+
+
+def test_direct_chat_and_search(tmp_path, monkeypatch):
+    monkeypatch.setattr(messenger_app, "DB_PATH", tmp_path / "direct.db")
+    messenger_app.init_db()
+    messenger_app.app.config.update(TESTING=True, SECRET_KEY="test-secret")
+    first = messenger_app.app.test_client()
+    second = messenger_app.app.test_client()
+    create_account(first, "77000000001", "Рома")
+    create_account(second, "77000000002", "Катя")
+
+    search = first.get("/api/users/search?q=Катя")
+    assert search.status_code == 200
+    user = search.get_json()[0]
+    created = first.post("/api/chats/direct", json={"user_id": user["id"]})
+    assert created.status_code == 201
+    chat_id = created.get_json()["chat_id"]
+
+    sent = first.post(f"/api/messages/{chat_id}", data={"body": "Тест личного чата"})
+    assert sent.status_code == 201
+
+    second_chats = second.get("/api/chats").get_json()
+    assert any(chat["id"] == chat_id for chat in second_chats)
+    received = second.get(f"/api/messages/{chat_id}?after=0")
+    assert received.status_code == 200
+    assert received.get_json()[0]["body"] == "Тест личного чата"
+
+
+def test_wrong_password_is_rejected(client):
+    create_account(client, "77009998877", "Пользователь")
+    client.get("/logout")
+    response = client.post(
+        "/login",
+        data={"phone": "77009998877", "password": "wrong-password"},
+    )
+    assert response.status_code == 401
