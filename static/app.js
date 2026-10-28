@@ -144,6 +144,18 @@ async function loadPinned(){
     $('pinnedResults').innerHTML=rows.length?rows.map(m=>'<button type="button" class="pinned-result" data-jump-message="'+m.id+'"><strong>'+esc(m.display_name)+'</strong><span>'+esc(m.body||'Вложение')+'</span></button>').join(''):'<p class="muted">Пока ничего не закреплено.</p>';
   }catch(e){showError(e.message);}
 }
+async function refreshReadReceipts(){
+  if(!activeChat)return;
+  try{
+    const data=await apiJson('/api/chats/'+activeChat+'/read-state');
+    document.querySelectorAll('#messages .message-row.mine').forEach(row=>{
+      const id=Number(row.dataset.messageId), stamp=row.querySelector('.message-time');
+      if(!stamp)return;
+      const base=stamp.textContent.replace(/ · ✓✓?$/,'');
+      stamp.textContent=base+(id<=Number(data.last_read_message_id||0)?' · ✓✓':' · ✓');
+    });
+  }catch{}
+}
 async function searchMessages(q){
   const target=$('messageSearchResults');if(!target)return;
   if(q.trim().length<2){target.innerHTML='';return;}
@@ -375,22 +387,6 @@ document.addEventListener('DOMContentLoaded',()=>{
     if(jump){const id=jump.dataset.jumpMessage;const target=$('messages')?.querySelector('[data-message-id="'+id+'"]');if(target){target.scrollIntoView({behavior:'smooth',block:'center'});target.classList.add('message-highlight');setTimeout(()=>target.classList.remove('message-highlight'),1400);}else{await fetchMessages(true);$('messages')?.querySelector('[data-message-id="'+id+'"]')?.scrollIntoView({behavior:'smooth',block:'center'});}return;}
   });
 
-  $('messages')?.addEventListener('click',async e=>{
-    const btn=e.target.closest('[data-reaction][data-message-id]');
-    if(!btn)return;
-    btn.disabled=true;
-    try{
-      const messageId=btn.dataset.messageId;
-      const res=await fetch('/api/messages/'+activeChat+'/'+messageId+'/reactions',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({emoji:btn.dataset.reaction})});
-      const data=await res.json();
-      if(!res.ok)throw new Error(data.error||'Не удалось поставить реакцию.');
-      const bar=btn.closest('.reaction-bar');
-      bar.querySelectorAll('.reaction-btn').forEach(b=>{b.classList.remove('has-reaction');b.querySelector('span').textContent='0';});
-      (data.reactions||[]).forEach(r=>{const b=[...bar.querySelectorAll('.reaction-btn')].find(x=>x.dataset.reaction===r.emoji);if(b){b.classList.add('has-reaction');b.querySelector('span').textContent=r.count;}});
-    }catch(err){showError(err.message||'Не удалось поставить реакцию.');}
-    finally{btn.disabled=false;}
-  });
-
   $('voiceCallBtn')?.addEventListener('click',()=>startCall('audio'));
   $('videoCallBtn')?.addEventListener('click',()=>startCall('video'));
   $('acceptCallBtn')?.addEventListener('click',acceptCall);
@@ -403,6 +399,6 @@ document.addEventListener('DOMContentLoaded',()=>{
   $('voiceBtn')?.addEventListener('click',()=>{if(mediaRecorder && mediaRecorder.state==='recording')stopRecording(true);else startRecording();});
   $('cancelRecordBtn')?.addEventListener('click',()=>stopRecording(false));
   $('messageInput')?.addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();$('composer').requestSubmit();}});
-  if(activeChat){fetchMessages(true);pollTimer=setInterval(()=>{fetchMessages(false);},1800);loadChats();}
+  if(activeChat){fetchMessages(true);pollTimer=setInterval(()=>{fetchMessages(false);refreshReadReceipts();},1800);loadChats();}
 });
 })();
