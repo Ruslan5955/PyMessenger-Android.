@@ -155,6 +155,21 @@ def init_db():
             FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
         );
         CREATE INDEX IF NOT EXISTS idx_reactions_message ON message_reactions(message_id);
+        CREATE TABLE IF NOT EXISTS pinned_messages (
+            chat_id INTEGER NOT NULL, message_id INTEGER NOT NULL,
+            pinned_by INTEGER NOT NULL, pinned_at TEXT NOT NULL,
+            PRIMARY KEY(chat_id,message_id),
+            FOREIGN KEY(chat_id) REFERENCES chats(id) ON DELETE CASCADE,
+            FOREIGN KEY(message_id) REFERENCES messages(id) ON DELETE CASCADE,
+            FOREIGN KEY(pinned_by) REFERENCES users(id) ON DELETE CASCADE
+        );
+        CREATE TABLE IF NOT EXISTS message_reads (
+            chat_id INTEGER NOT NULL, user_id INTEGER NOT NULL,
+            last_read_message_id INTEGER NOT NULL DEFAULT 0, updated_at TEXT NOT NULL,
+            PRIMARY KEY(chat_id,user_id),
+            FOREIGN KEY(chat_id) REFERENCES chats(id) ON DELETE CASCADE,
+            FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
+        );
 
         CREATE TABLE IF NOT EXISTS call_signals (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -170,6 +185,10 @@ def init_db():
         );
         CREATE INDEX IF NOT EXISTS idx_call_signals_recipient ON call_signals(recipient_id, id);
         """)
+        columns = {row["name"] for row in con.execute("PRAGMA table_info(messages)").fetchall()}
+        for name, declaration in (("reply_to_id", "INTEGER"), ("edited_at", "TEXT NOT NULL DEFAULT ''"), ("deleted_at", "TEXT NOT NULL DEFAULT ''")):
+            if name not in columns:
+                con.execute(f"ALTER TABLE messages ADD COLUMN {name} {declaration}")
 
 
 init_db()
@@ -371,6 +390,7 @@ def profile():
 def update_profile():
     display_name = (request.form.get("display_name") or "").strip()[:40]
     bio = (request.form.get("bio") or "").strip()[:240]
+    status = (request.form.get("status") or "").strip()[:80] or "🟢 В сети"
     if not display_name:
         flash("Имя не может быть пустым.", "error")
         return redirect(url_for("profile"))
@@ -384,11 +404,11 @@ def update_profile():
         upload.save(AVATAR_DIR / avatar_name)
     with get_db() as con:
         if avatar_name:
-            con.execute("UPDATE users SET display_name=?,bio=?,avatar=? WHERE id=?",
-                        (display_name, bio, avatar_name, session["user_id"]))
+            con.execute("UPDATE users SET display_name=?,bio=?,status=?,avatar=? WHERE id=?",
+                        (display_name, bio, status, avatar_name, session["user_id"]))
         else:
-            con.execute("UPDATE users SET display_name=?,bio=? WHERE id=?",
-                        (display_name, bio, session["user_id"]))
+            con.execute("UPDATE users SET display_name=?,bio=?,status=? WHERE id=?",
+                        (display_name, bio, status, session["user_id"]))
     flash("Профиль сохранён.", "success")
     return redirect(url_for("profile"))
 
@@ -482,6 +502,88 @@ def create_group_chat():
     return jsonify({"chat_id": chat_id}), 201
 
 
+@app.route("/api/chats/<int:chat_id>/group", methods=["GET", "PATCH"])
+@login_required
+def manage_group(chat_id):
+    user_id = session["user_id"]
+    with get_db() as con:
+        chat = con.execute("SELECT id,title,is_group,created_by FROM chats WHERE id=?", (chat_id,)).fetchone()
+        if not chat or not chat_member(con, chat_id, user_id):
+            return jsonify({"error": "Чат не найден."}), 404
+        if not chat["is_group"]:
+            return jsonify({"error": "Это не групповой чат."}), 400
+        if request.method == "PATCH":
+            if chat["created_by"] != user_id:
+                return jsonify({"error": "Только создатель группы может изменить название."}), 403
+            data = request.get_json(silent=True) or {}
+            title = (data.get("title") or "").strip()[:60]
+            if not title:
+                return jsonify({"error": "Название не может быть пустым."}), 400
+            con.execute("UPDATE chats SET title=? WHERE id=?", (title, chat_id))
+        members = con.execute("""
+            SELECT u.id,u.username,u.display_name,u.avatar,u.status,cm.joined_at,
+                   CASE WHEN u.id=c.created_by THEN 1 ELSE 0 END AS is_owner
+            FROM chat_members cm JOIN users u ON u.id=cm.user_id
+            JOIN chats c ON c.id=cm.chat_id WHERE cm.chat_id=?
+            ORDER BY is_owner DESC,u.display_name
+        """, (chat_id,)).fetchall()
+        title_row = con.execute("SELECT title FROM chats WHERE id=?", (chat_id,)).fetchone()
+    return jsonify({"title": title_row["title"], "is_owner": chat["created_by"] == user_id, "members": [dict(m) for m in members]})
+
+@app.post("/api/chats/<int:chat_id>/members")
+@login_required
+def add_group_member(chat_id):
+    data = request.get_json(silent=True) or {}
+    try:
+        new_user_id = int(data.get("user_id"))
+    except (TypeError, ValueError):
+        return jsonify({"error": "Выбери пользователя."}), 400
+    user_id = session["user_id"]
+    with get_db() as con:
+        chat = con.execute("SELECT is_group,created_by FROM chats WHERE id=?", (chat_id,)).fetchone()
+        if not chat or not chat_member(con, chat_id, user_id):
+            return jsonify({"error": "Чат не найден."}), 404
+        if not chat["is_group"]:
+            return jsonify({"error": "Это не группа."}), 400
+        if chat["created_by"] != user_id:
+            return jsonify({"error": "Добавлять участников может создатель группы."}), 403
+        if not con.execute("SELECT 1 FROM users WHERE id=?", (new_user_id,)).fetchone():
+            return jsonify({"error": "Пользователь не найден."}), 404
+        con.execute("INSERT OR IGNORE INTO chat_members(chat_id,user_id,joined_at) VALUES(?,?,?)", (chat_id, new_user_id, now_iso()))
+    return jsonify({"success": True})
+
+@app.delete("/api/chats/<int:chat_id>/members/<int:member_id>")
+@login_required
+def remove_group_member(chat_id, member_id):
+    user_id = session["user_id"]
+    with get_db() as con:
+        chat = con.execute("SELECT is_group,created_by FROM chats WHERE id=?", (chat_id,)).fetchone()
+        if not chat or not chat_member(con, chat_id, user_id):
+            return jsonify({"error": "Чат не найден."}), 404
+        if not chat["is_group"]:
+            return jsonify({"error": "Это не группа."}), 400
+        if chat["created_by"] != user_id:
+            return jsonify({"error": "Управлять участниками может создатель группы."}), 403
+        if member_id == chat["created_by"]:
+            return jsonify({"error": "Создатель не может удалить себя."}), 400
+        con.execute("DELETE FROM chat_members WHERE chat_id=? AND user_id=?", (chat_id, member_id))
+    return jsonify({"success": True})
+
+@app.post("/api/chats/<int:chat_id>/leave")
+@login_required
+def leave_group(chat_id):
+    user_id = session["user_id"]
+    with get_db() as con:
+        chat = con.execute("SELECT is_group,created_by FROM chats WHERE id=?", (chat_id,)).fetchone()
+        if not chat or not chat_member(con, chat_id, user_id):
+            return jsonify({"error": "Чат не найден."}), 404
+        if not chat["is_group"]:
+            return jsonify({"error": "Это не группа."}), 400
+        if chat["created_by"] == user_id:
+            return jsonify({"error": "Создатель группы пока не может выйти."}), 400
+        con.execute("DELETE FROM chat_members WHERE chat_id=? AND user_id=?", (chat_id, user_id))
+    return jsonify({"success": True})
+
 @app.get("/api/users/search")
 @login_required
 def search_users():
@@ -508,17 +610,39 @@ def api_messages(chat_id):
         if request.method == "GET":
             after = request.args.get("after", default=0, type=int)
             rows = con.execute("""
-                SELECT m.id,m.chat_id,m.sender_id,m.body,m.attachment,m.attachment_name,
-                       m.attachment_kind,m.created_at,u.username,u.display_name,u.avatar,COALESCE((SELECT group_concat(emoji || ':' || cnt, ',') FROM (SELECT emoji,COUNT(*) AS cnt FROM message_reactions WHERE message_id=m.id GROUP BY emoji)), '') AS reactions
+                SELECT m.id,m.chat_id,m.sender_id,m.body,m.attachment,m.attachment_name,m.attachment_kind,
+                       m.created_at,m.reply_to_id,m.edited_at,m.deleted_at,u.username,u.display_name,u.avatar,
+                       COALESCE((SELECT group_concat(emoji || ':' || cnt, ',') FROM (SELECT emoji,COUNT(*) AS cnt FROM message_reactions WHERE message_id=m.id GROUP BY emoji)), '') AS reactions,
+                       (SELECT body FROM messages r WHERE r.id=m.reply_to_id) AS reply_body,
+                       (SELECT ru.display_name FROM messages r JOIN users ru ON ru.id=r.sender_id WHERE r.id=m.reply_to_id) AS reply_sender,
+                       CASE WHEN m.sender_id=? AND EXISTS(SELECT 1 FROM message_reads mr WHERE mr.chat_id=m.chat_id AND mr.user_id<>? AND mr.last_read_message_id>=m.id) THEN 1 ELSE 0 END AS is_read,
+                       CASE WHEN pm.message_id IS NULL THEN 0 ELSE 1 END AS is_pinned
                 FROM messages m JOIN users u ON u.id=m.sender_id
+                LEFT JOIN pinned_messages pm ON pm.message_id=m.id AND pm.chat_id=m.chat_id
                 WHERE m.chat_id=? AND m.id>? ORDER BY m.id ASC LIMIT 200
-            """, (chat_id, max(after, 0))).fetchall()
+            """, (user_id, user_id, chat_id, max(after, 0))).fetchall()
             messages = [dict(row) for row in rows]
             for message in messages:
-                message["body"] = reveal_message_body(message["body"])
+                message["body"] = "Сообщение удалено" if message.get("deleted_at") else reveal_message_body(message["body"])
+                if message.get("reply_body"):
+                    message["reply_body"] = reveal_message_body(message["reply_body"])
+            latest = con.execute("SELECT COALESCE(MAX(id),0) AS id FROM messages WHERE chat_id=?", (chat_id,)).fetchone()["id"]
+            con.execute("""INSERT INTO message_reads(chat_id,user_id,last_read_message_id,updated_at) VALUES(?,?,?,?)
+                ON CONFLICT(chat_id,user_id) DO UPDATE SET
+                last_read_message_id=MAX(message_reads.last_read_message_id,excluded.last_read_message_id),updated_at=excluded.updated_at""",
+                (chat_id, user_id, latest, now_iso()))
             return jsonify(messages)
 
         body = (request.form.get("body") or "").strip()
+        reply_to_raw = request.form.get("reply_to_id", "").strip()
+        reply_to_id = None
+        if reply_to_raw:
+            try:
+                reply_to_id = int(reply_to_raw)
+            except ValueError:
+                return jsonify({"error": "Некорректный ответ на сообщение."}), 400
+            if not con.execute("SELECT 1 FROM messages WHERE id=? AND chat_id=?", (reply_to_id, chat_id)).fetchone():
+                return jsonify({"error": "Сообщение для ответа не найдено."}), 404
         upload = request.files.get("file")
         if len(body) > 4000:
             return jsonify({"error": "Сообщение слишком длинное (максимум 4000 символов)."}), 400
@@ -540,9 +664,9 @@ def api_messages(chat_id):
         if not body and not attachment:
             return jsonify({"error": "Нельзя отправить пустое сообщение."}), 400
         cur = con.execute("""
-            INSERT INTO messages(chat_id,sender_id,body,attachment,attachment_name,attachment_kind,created_at)
-            VALUES(?,?,?,?,?,?,?)
-        """, (chat_id, user_id, protect_message_body(body), attachment, attachment_name, attachment_kind, now_iso()))
+            INSERT INTO messages(chat_id,sender_id,body,attachment,attachment_name,attachment_kind,created_at,reply_to_id)
+            VALUES(?,?,?,?,?,?,?,?)
+        """, (chat_id, user_id, protect_message_body(body), attachment, attachment_name, attachment_kind, now_iso(), reply_to_id)
         msg_id = cur.lastrowid
         row = con.execute("""
             SELECT m.id,m.chat_id,m.sender_id,m.body,m.attachment,m.attachment_name,
@@ -554,6 +678,68 @@ def api_messages(chat_id):
     result["body"] = reveal_message_body(result["body"])
     return jsonify(result), 201
 
+
+@app.route("/api/chats/<int:chat_id>/search")
+@login_required
+def search_chat_messages(chat_id):
+    q = (request.args.get("q") or "").strip()[:100]
+    user_id = session["user_id"]
+    with get_db() as con:
+        if not chat_member(con, chat_id, user_id):
+            return jsonify({"error": "Чат не найден."}), 404
+        if len(q) < 2:
+            return jsonify([])
+        rows = con.execute("""SELECT m.id,m.sender_id,m.body,m.created_at,u.display_name
+            FROM messages m JOIN users u ON u.id=m.sender_id
+            WHERE m.chat_id=? AND m.deleted_at='' AND m.body LIKE ? ESCAPE '\'
+            ORDER BY m.id DESC LIMIT 50""",
+            (chat_id, "%" + q.replace("\", "\\").replace("%", "\%").replace("_", "\_") + "%")).fetchall()
+    result=[]
+    for row in rows:
+        item=dict(row); item["body"]=reveal_message_body(item["body"]); result.append(item)
+    return jsonify(result)
+
+@app.route("/api/chats/<int:chat_id>/pinned", methods=["GET", "POST", "DELETE"])
+@login_required
+def pinned_messages(chat_id):
+    user_id=session["user_id"]
+    with get_db() as con:
+        if not chat_member(con,chat_id,user_id): return jsonify({"error":"Чат не найден."}),404
+        if request.method=="POST":
+            data=request.get_json(silent=True) or {}
+            try: message_id=int(data.get("message_id"))
+            except (TypeError,ValueError): return jsonify({"error":"Выбери сообщение."}),400
+            if not con.execute("SELECT 1 FROM messages WHERE id=? AND chat_id=? AND deleted_at=''",(message_id,chat_id)).fetchone():
+                return jsonify({"error":"Сообщение не найдено."}),404
+            existing=con.execute("SELECT 1 FROM pinned_messages WHERE chat_id=? AND message_id=?",(chat_id,message_id)).fetchone()
+            if existing: con.execute("DELETE FROM pinned_messages WHERE chat_id=? AND message_id=?",(chat_id,message_id))
+            else: con.execute("INSERT INTO pinned_messages(chat_id,message_id,pinned_by,pinned_at) VALUES(?,?,?,?)",(chat_id,message_id,user_id,now_iso()))
+        rows=con.execute("""SELECT m.id,m.sender_id,m.body,m.created_at,u.display_name
+            FROM pinned_messages p JOIN messages m ON m.id=p.message_id
+            JOIN users u ON u.id=m.sender_id WHERE p.chat_id=? ORDER BY p.pinned_at DESC LIMIT 30""",(chat_id,)).fetchall()
+    result=[]
+    for row in rows:
+        item=dict(row); item["body"]=reveal_message_body(item["body"]); result.append(item)
+    return jsonify(result)
+
+@app.route("/api/messages/<int:chat_id>/<int:message_id>", methods=["PATCH", "DELETE"])
+@login_required
+def edit_or_delete_message(chat_id,message_id):
+    user_id=session["user_id"]
+    with get_db() as con:
+        if not chat_member(con,chat_id,user_id): return jsonify({"error":"Чат не найден."}),404
+        row=con.execute("SELECT sender_id,deleted_at FROM messages WHERE id=? AND chat_id=?",(message_id,chat_id)).fetchone()
+        if not row: return jsonify({"error":"Сообщение не найдено."}),404
+        if row["sender_id"]!=user_id: return jsonify({"error":"Можно изменять только свои сообщения."}),403
+        if row["deleted_at"]: return jsonify({"error":"Сообщение уже удалено."}),400
+        if request.method=="PATCH":
+            data=request.get_json(silent=True) or {}; body=(data.get("body") or "").strip()
+            if not body: return jsonify({"error":"Текст сообщения не может быть пустым."}),400
+            if len(body)>4000: return jsonify({"error":"Максимум 4000 символов."}),400
+            con.execute("UPDATE messages SET body=?,edited_at=? WHERE id=?",(protect_message_body(body),now_iso(),message_id))
+        else:
+            con.execute("UPDATE messages SET body='',attachment='',attachment_name='',attachment_kind='',deleted_at=? WHERE id=?",(now_iso(),message_id))
+    return jsonify({"success":True})
 
 @app.route("/api/messages/<int:chat_id>/<int:message_id>/reactions", methods=["GET", "POST"])
 @login_required
