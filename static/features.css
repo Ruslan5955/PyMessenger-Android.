@@ -112,3 +112,35 @@ body,.app-body{
 .reaction-btn:hover{transform:translateY(-1px);background:rgba(112,131,255,.16);border-color:rgba(153,166,255,.5)}
 .reaction-btn.has-reaction{background:rgba(111,129,255,.22);border-color:rgba(153,166,255,.68);box-shadow:0 0 14px rgba(111,129,255,.12)}
 .reaction-btn:disabled{opacity:.6}
+
+
+/* Conversation tools and message actions */
+.message-tools,.pinned-tools{padding:10px 14px;background:rgba(9,15,30,.76);border-bottom:1px solid rgba(190,207,255,.1);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px)}
+.message-tools .modal-input{width:100%;box-sizing:border-box}
+.message-search-results,.pinned-results{display:grid;gap:6px;max-height:190px;overflow:auto;margin-top:8px}
+.search-message-result,.pinned-result{display:flex;flex-direction:column;gap:4px;text-align:left;padding:10px 12px;border-radius:12px;border:1px solid rgba(190,207,255,.1);background:rgba(255,255,255,.035);color:#edf2ff;cursor:pointer}
+.search-message-result span,.pinned-result span{font-size:12px;color:#aab7d7;overflow-wrap:anywhere}
+.search-message-result strong,.pinned-result strong{font-size:12px}
+.reply-preview{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:9px 14px;background:rgba(91,112,210,.12);border-top:1px solid rgba(186,203,255,.1);color:#c8d3ff;font-size:12px}
+.reply-preview button{border:0;border-radius:9px;background:rgba(255,255,255,.08);color:#fff;width:28px;height:28px;font-size:20px}
+.reply-quote{display:flex;flex-direction:column;gap:3px;width:100%;text-align:left;padding:7px 10px;margin-bottom:8px;border:0;border-left:3px solid #8a7cff;border-radius:0 9px 9px 0;background:rgba(7,12,27,.28);color:#c4ceef;cursor:pointer}
+.reply-quote strong{font-size:11px;color:#b9c6ff}
+.reply-quote span{font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:360px}
+.message-actions{display:flex;gap:4px;justify-content:flex-end;margin-top:5px;opacity:.72;transition:opacity .18s}
+.message-row:hover .message-actions,.message-row:focus-within .message-actions{opacity:1}
+.message-actions button{border:1px solid rgba(192,208,255,.1);border-radius:8px;background:rgba(6,12,25,.35);color:#cbd6f8;padding:4px 7px;font-size:12px;cursor:pointer}
+.message-actions button:hover{background:rgba(113,128,255,.2);border-color:rgba(157,170,255,.35)}
+.pinned-message .bubble{border-color:rgba(255,199,102,.4)}
+.message-highlight .bubble{box-shadow:0 0 0 2px rgba(132,151,255,.9),0 0 35px rgba(107,128,255,.35)}
+.sticker-panel{display:flex;flex-wrap:wrap;gap:6px;padding:10px 14px;background:rgba(12,19,36,.88);border-top:1px solid rgba(192,208,255,.1);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px)}
+.sticker-panel button{min-width:40px;min-height:38px;border:1px solid rgba(190,207,255,.12);border-radius:12px;background:rgba(255,255,255,.05);color:#fff;font-size:22px;cursor:pointer}
+.sticker-panel button:hover{background:rgba(122,126,255,.18);transform:translateY(-1px)}
+.sticker-panel #gifUploadBtn{font-size:12px;font-weight:800;letter-spacing:.08em;padding:0 12px}
+.profile-card input[name="status"]{width:100%;box-sizing:border-box}
+@media(max-width:760px){
+ .message-tools,.pinned-tools{padding:8px 10px}
+ .message-actions{opacity:1;gap:3px}
+ .message-actions button{padding:5px 7px;min-height:28px}
+ .reply-quote span{max-width:65vw}
+ .sticker-panel{padding:8px 10px}
+}
