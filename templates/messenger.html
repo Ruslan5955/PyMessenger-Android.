@@ -28,7 +28,7 @@
     <header class="conversation-header">
       <div class="avatar header-avatar" id="headerAvatar">✦</div>
       <div><strong id="headerTitle">Загрузка чата…</strong><div class="header-sub" id="headerSub">История сохраняется на сервере</div></div>
-      <div class="header-actions"><button class="icon-btn" id="refreshBtn" title="Обновить">↻</button><a class="icon-btn" href="{{ url_for('profile') }}" title="Мой профиль">☻</a></div>
+      <div class="header-actions">{% if selected_direct %}<button class="icon-btn call-btn" id="voiceCallBtn" title="Голосовой звонок" aria-label="Голосовой звонок">☎</button><button class="icon-btn call-btn" id="videoCallBtn" title="Видеозвонок" aria-label="Видеозвонок">▣</button>{% endif %}<button class="icon-btn" id="refreshBtn" title="Обновить">↻</button><a class="icon-btn" href="{{ url_for('profile') }}" title="Мой профиль">☻</a></div>
     </header>
     <div class="messages" id="messages"><div class="loading">Загружаем сообщения…</div></div>
     <div class="recording-note" id="recordingNote" hidden>● Идёт запись голосового сообщения… <button id="cancelRecordBtn" class="text-btn">Отмена</button></div>
@@ -53,8 +53,9 @@
     <div id="groupPane" hidden><label class="modal-label">Название группы<input id="groupTitle" class="modal-input" maxlength="60" placeholder="Например, Друзья"></label><div class="modal-label">Выбери участников</div><div id="groupSelected" class="selected-users"></div><input id="groupSearch" class="modal-input" placeholder="Поиск пользователей"><div id="groupResults" class="search-results"></div><button id="createGroupBtn" class="primary full">Создать группу</button></div>
   </div>
 </div>
+<div class="call-backdrop" id="callBackdrop" hidden><section class="call-panel" role="dialog" aria-modal="true" aria-labelledby="callTitle"><h2 id="callTitle">Звонок</h2><p id="callStatus">Подключение…</p><div class="call-videos" id="callVideos" hidden><video id="remoteVideo" autoplay playsinline></video><video id="localVideo" autoplay muted playsinline></video></div><audio id="remoteAudio" autoplay></audio><div class="call-actions"><button class="primary" id="acceptCallBtn" hidden>Ответить</button><button class="secondary" id="declineCallBtn" hidden>Отклонить</button><button class="hangup-btn" id="hangupCallBtn" hidden>Завершить звонок</button></div></section></div>
 <script>
-window.PYMESSENGER = {userId: {{ user.id }}, selectedChat: {{ selected_chat if selected_chat else 'null' }}, displayName: {{ user.display_name|tojson }}};
+window.PYMESSENGER = {userId: {{ user.id }}, selectedChat: {{ selected_chat if selected_chat else 'null' }}, isDirect: {{ 'true' if selected_direct else 'false' }}, displayName: {{ user.display_name|tojson }}};
 </script>
 <script src="{{ url_for('static', filename='app.js') }}"></script>
 </body></html>
