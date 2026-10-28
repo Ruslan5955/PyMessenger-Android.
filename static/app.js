@@ -66,7 +66,17 @@ async function fetchMessages(initial=false) {
   if (!activeChat || !$('messages')) return;
   try {
     const res = await fetch(`/api/messages/${activeChat}?after=${initial?0:lastMessageId}`);
-    if (!res.ok) return;
+    if (res.status === 404) {
+      // The selected chat may have been deleted or the current account is no longer a member.
+      if (pollTimer) clearInterval(pollTimer);
+      activeChat = null;
+      window.location.replace('/messenger');
+      return;
+    }
+    if (!res.ok) {
+      console.error('Could not load messages:', res.status, await res.text().catch(() => ''));
+      return;
+    }
     const rows = await res.json();
     const box = $('messages');
     if (initial) { box.innerHTML = ''; lastMessageId = 0; }
