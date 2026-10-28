@@ -691,9 +691,8 @@ def search_chat_messages(chat_id):
             return jsonify([])
         rows = con.execute("""SELECT m.id,m.sender_id,m.body,m.created_at,u.display_name
             FROM messages m JOIN users u ON u.id=m.sender_id
-            WHERE m.chat_id=? AND m.deleted_at='' AND m.body LIKE ? ESCAPE '\'
-            ORDER BY m.id DESC LIMIT 50""",
-            (chat_id, "%" + q.replace("\", "\\").replace("%", "\%").replace("_", "\_") + "%")).fetchall()
+            WHERE m.chat_id=? AND m.deleted_at='' AND m.body LIKE ?
+            ORDER BY m.id DESC LIMIT 50""", (chat_id, "%" + q + "%")).fetchall()
     result=[]
     for row in rows:
         item=dict(row); item["body"]=reveal_message_body(item["body"]); result.append(item)
