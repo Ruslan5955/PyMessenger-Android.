@@ -693,11 +693,15 @@ def search_chat_messages(chat_id):
             return jsonify([])
         rows = con.execute("""SELECT m.id,m.sender_id,m.body,m.created_at,u.display_name
             FROM messages m JOIN users u ON u.id=m.sender_id
-            WHERE m.chat_id=? AND m.deleted_at='' AND m.body LIKE ?
-            ORDER BY m.id DESC LIMIT 50""", (chat_id, "%" + q + "%")).fetchall()
+            WHERE m.chat_id=? AND m.deleted_at='' ORDER BY m.id DESC LIMIT 1500""",
+            (chat_id,)).fetchall()
     result=[]
+    needle=q.casefold()
     for row in rows:
-        item=dict(row); item["body"]=reveal_message_body(item["body"]); result.append(item)
+        body=reveal_message_body(row["body"])
+        if needle in body.casefold():
+            item=dict(row); item["body"]=body; result.append(item)
+            if len(result)>=50: break
     return jsonify(result)
 
 @app.route("/api/chats/<int:chat_id>/pinned", methods=["GET", "POST", "DELETE"])
