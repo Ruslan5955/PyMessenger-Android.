@@ -57,11 +57,13 @@ function renderMessage(m) {
       attachment = `<a class="attachment" href="${url}" download="${esc(m.attachment_name)}"><span class="file-chip"><span>📎</span><span>${esc(m.attachment_name)}<small>Нажми, чтобы скачать</small></span></span></a>`;
     }
   }
+  const reactions = String(m.reactions || '').split(',').filter(Boolean).map(item => { const p=item.split(':'); return {emoji:p[0],count:Number(p[1])||0}; });
+  const reactionBar = ['❤️','😂','👍','🔥','😮'].map(emoji => { const r=reactions.find(x=>x.emoji===emoji); return `<button type="button" class="reaction-btn ${r?'has-reaction':''}" data-reaction="${emoji}" data-message-id="${m.id}" aria-label="Реакция ${emoji}">${emoji}<span>${r?r.count:0}</span></button>`; }).join('');
   return `<div class="message-row ${mine?'mine':''}" data-message-id="${m.id}">
     ${mine?'':avatarHtml(m.avatar,m.display_name)}
     <div class="bubble">${mine?'':`<div class="sender">${esc(m.display_name)} · @${esc(m.username)}</div>`}
       ${m.body ? `<div class="message-text">${esc(m.body)}</div>` : ''}${attachment}
-      <div class="message-time">${timeLabel(m.created_at)}</div></div></div>`;
+      <div class="message-time">${timeLabel(m.created_at)}</div><div class="reaction-bar">${reactionBar}</div></div></div>`;
 }
 async function fetchMessages(initial=false) {
   if (!activeChat || !$('messages')) return;
@@ -257,6 +259,22 @@ document.addEventListener('DOMContentLoaded',()=>{
   $('createGroupBtn')?.addEventListener('click',createGroup);
   $('chatSearch')?.addEventListener('input',e=>{const q=e.target.value.toLowerCase();document.querySelectorAll('.chat-item').forEach(el=>el.style.display=el.innerText.toLowerCase().includes(q)?'':'none');});
   $('refreshBtn')?.addEventListener('click',()=>fetchMessages(true));
+  $('messages')?.addEventListener('click',async e=>{
+    const btn=e.target.closest('[data-reaction][data-message-id]');
+    if(!btn)return;
+    btn.disabled=true;
+    try{
+      const messageId=btn.dataset.messageId;
+      const res=await fetch('/api/messages/'+activeChat+'/'+messageId+'/reactions',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({emoji:btn.dataset.reaction})});
+      const data=await res.json();
+      if(!res.ok)throw new Error(data.error||'Не удалось поставить реакцию.');
+      const bar=btn.closest('.reaction-bar');
+      bar.querySelectorAll('.reaction-btn').forEach(b=>{b.classList.remove('has-reaction');b.querySelector('span').textContent='0';});
+      (data.reactions||[]).forEach(r=>{const b=[...bar.querySelectorAll('.reaction-btn')].find(x=>x.dataset.reaction===r.emoji);if(b){b.classList.add('has-reaction');b.querySelector('span').textContent=r.count;}});
+    }catch(err){showError(err.message||'Не удалось поставить реакцию.');}
+    finally{btn.disabled=false;}
+  });
+
   $('voiceCallBtn')?.addEventListener('click',()=>startCall('audio'));
   $('videoCallBtn')?.addEventListener('click',()=>startCall('video'));
   $('acceptCallBtn')?.addEventListener('click',acceptCall);
