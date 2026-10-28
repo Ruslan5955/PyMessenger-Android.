@@ -29,6 +29,15 @@ android {
         versionName "1.0"
     }
 
+    buildTypes {
+        release {
+            // Produces an installable Release APK for direct testing/distribution.
+            // For a Play Store release, replace this with a private release keystore.
+            signingConfig signingConfigs.debug
+            minifyEnabled false
+        }
+    }
+
     sourceSets {
         main {
             manifest.srcFile 'android/app/src/main/AndroidManifest.xml'
