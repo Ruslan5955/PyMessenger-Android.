@@ -746,6 +746,19 @@ def edit_or_delete_message(chat_id,message_id):
             con.execute("UPDATE messages SET body='',attachment='',attachment_name='',attachment_kind='',deleted_at=? WHERE id=?",(now_iso(),message_id))
     return jsonify({"success":True})
 
+@app.get("/api/chats/<int:chat_id>/read-state")
+@login_required
+def chat_read_state(chat_id):
+    user_id = session["user_id"]
+    with get_db() as con:
+        if not chat_member(con, chat_id, user_id):
+            return jsonify({"error": "Чат не найден."}), 404
+        row = con.execute("""SELECT COALESCE(MAX(last_read_message_id),0) AS last_read_message_id
+            FROM message_reads WHERE chat_id=? AND user_id<>?
+            AND user_id IN (SELECT user_id FROM chat_members WHERE chat_id=?)""",
+            (chat_id, user_id, chat_id)).fetchone()
+    return jsonify({"last_read_message_id": row["last_read_message_id"]})
+
 @app.route("/api/messages/<int:chat_id>/<int:message_id>/reactions", methods=["GET", "POST"])
 @login_required
 def message_reactions(chat_id, message_id):
