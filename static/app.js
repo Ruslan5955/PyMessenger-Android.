@@ -15,6 +15,7 @@ let queuedIceCandidates = [];
 let callBusy = false;
 let activeCallChat = null;
 const $ = id => document.getElementById(id);
+$('mobileBackBtn')?.addEventListener('click', () => { window.location.href = '/messenger'; });
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const initials = s => (s || '?').trim().slice(0,1).toUpperCase();
 const avatarHtml = (avatar, name, cls='message-avatar') => `<div class="avatar ${cls}">${avatar ? `<img src="/uploads/avatars/${encodeURIComponent(avatar)}">` : esc(initials(name))}</div>`;
