@@ -2,7 +2,9 @@ import os
 import re
 import sqlite3
 import sys
+import threading
 import uuid
+import webbrowser
 from datetime import datetime, timezone
 from pathlib import Path
 from functools import wraps
@@ -548,8 +550,10 @@ def internal_error(_error):
 
 
 if __name__ == "__main__":
+    if getattr(sys, "frozen", False):
+        threading.Timer(1.2, lambda: webbrowser.open("http://127.0.0.1:5000")).start()
     app.run(
-        host="0.0.0.0",
+        host=os.environ.get("PYMESSENGER_HOST", "127.0.0.1"),
         port=int(os.environ.get("PORT", "5000")),
         debug=os.environ.get("FLASK_DEBUG", "0") == "1",
     )
