@@ -5,6 +5,7 @@ import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 from functools import wraps
+from contextlib import contextmanager
 
 from flask import (
     Flask, abort, flash, jsonify, redirect, render_template, request,
@@ -42,12 +43,17 @@ def now_iso():
     return datetime.now(timezone.utc).isoformat()
 
 
+@contextmanager
 def get_db():
     con = sqlite3.connect(DB_PATH, timeout=15)
     con.row_factory = sqlite3.Row
     con.execute("PRAGMA foreign_keys = ON")
     con.execute("PRAGMA busy_timeout = 15000")
-    return con
+    try:
+        with con:
+            yield con
+    finally:
+        con.close()
 
 
 def init_db():
