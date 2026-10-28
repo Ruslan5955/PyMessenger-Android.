@@ -7,6 +7,7 @@
   {% with messages = get_flashed_messages(with_categories=true) %}{% for category, message in messages %}<div class="notice {{ category }}">{{ message }}</div>{% endfor %}{% endwith %}
   <form method="post" enctype="multipart/form-data">
     <label>Отображаемое имя<input name="display_name" maxlength="40" required value="{{ user.display_name }}"></label>
+    <label>Статус<input name="status" maxlength="80" value="{{ user.status }}" placeholder="Например: играю, отвечу позже"></label>
     <label>О себе<textarea name="bio" maxlength="240" rows="3" placeholder="Пара слов о себе">{{ user.bio }}</textarea></label>
     <label>Аватарка<input type="file" name="avatar" accept=".png,.jpg,.jpeg,.webp,.gif"></label>
     <button class="primary full" type="submit">Сохранить профиль</button>
