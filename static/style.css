@@ -21,3 +21,63 @@
 .call-videos video{width:100%;max-height:280px;object-fit:cover;background:#070b12;border-radius:13px;aspect-ratio:4/3}
 .call-actions{display:flex;justify-content:center;gap:9px;flex-wrap:wrap;margin-top:18px}.call-actions button[hidden]{display:none}
 .hangup-btn{background:#c83e57;color:white;font-weight:700;font-size:12px;padding:12px 18px;border-radius:12px}
+
+
+/* Mobile-first polish: one clear screen at a time, no squeezed icon rail. */
+.mobile-back{display:none;flex:0 0 38px;width:38px;height:38px;align-items:center;justify-content:center;border-radius:12px;background:#202d43;color:#edf3ff;font-size:25px}
+@media(max-width:760px){
+  html,body,.app-body{width:100%;height:100%;height:100dvh;min-height:0;overflow:hidden}
+  .app{width:100%;height:100%;height:100dvh;max-width:none;padding:0;gap:0}
+  .sidebar{display:flex!important;position:relative;width:100%;min-width:0;height:100%;height:100dvh;border:0;border-radius:0;box-shadow:none}
+  .side-top{height:62px;min-height:62px;justify-content:space-between;padding:0 16px}
+  .brand-small strong{display:block;font-size:17px}
+  .brand-mark.tiny{width:35px;height:35px;border-radius:12px}
+  .top-tools{display:flex;gap:6px}
+  .top-tools .icon-btn{position:static;width:42px;height:42px;background:#202d43;border-radius:14px}
+  .me-card{padding:14px 16px;justify-content:flex-start}
+  .me-info{display:flex}
+  .profile-link{display:grid}
+  .search-wrap{display:flex;height:46px;margin:0 14px 16px;border-radius:14px}
+  .section-label{display:flex;padding:0 18px 10px}
+  .chat-list{padding:0 10px 12px;overscroll-behavior:contain}
+  .chat-item{justify-content:flex-start;gap:12px;padding:12px 10px;border-radius:16px}
+  .chat-avatar{width:50px;height:50px;border-radius:17px;font-size:18px}
+  .chat-meta{display:block;flex:1;min-width:0}
+  .chat-title-row strong{font-size:14px}
+  .preview{font-size:12px;margin-top:5px}
+  .side-footer{display:flex;padding:12px 16px;min-height:44px}
+  .secure-label{display:none}
+  .conversation{display:none!important;position:fixed;inset:0;z-index:10;width:100%;height:100%;height:100dvh;min-height:0;border:0;border-radius:0}
+  .app:has(.conversation-header) .sidebar{display:none!important}
+  .app:has(.conversation-header) .conversation{display:flex!important}
+  .conversation-header{gap:9px;padding:calc(env(safe-area-inset-top,0px) + 9px) 12px 10px;min-height:68px}
+  .mobile-back{display:flex}
+  .header-avatar{width:40px;height:40px;border-radius:14px}
+  .conversation-header strong{font-size:14px;max-width:42vw;display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .header-sub{font-size:11px;max-width:44vw;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .header-actions{gap:2px}
+  .header-actions .icon-btn{width:36px;height:36px;font-size:18px}
+  .messages{padding:14px 10px;gap:10px;overscroll-behavior:contain}
+  .message-row{max-width:96%;gap:6px}
+  .message-avatar{width:29px;height:29px}
+  .bubble{max-width:calc(100vw - 78px);padding:10px 12px;border-radius:17px;font-size:14px}
+  .message-text{font-size:14px;line-height:1.5;overflow-wrap:anywhere}
+  .composer{padding:8px 9px calc(env(safe-area-inset-bottom,0px) + 9px);gap:6px;min-height:62px}
+  .attach-btn,.voice-btn,.send-btn{flex:0 0 40px;width:40px;height:40px;border-radius:14px}
+  .composer textarea{min-width:0;min-height:42px;max-height:120px;padding:11px 12px;font-size:15px;border-radius:15px}
+  .welcome{padding:24px 20px}
+  .welcome h2{font-size:22px}
+  .welcome p{font-size:14px;line-height:1.6}
+  .modal-backdrop,.call-backdrop{padding:12px;align-items:center}
+  .modal,.call-panel{width:100%;max-width:100%;max-height:calc(100dvh - 24px);overflow:auto;border-radius:20px}
+}
+@media(max-width:380px){
+  .brand-small{gap:7px;font-size:15px}
+  .side-top{padding:0 11px}
+  .top-tools{gap:2px}
+  .top-tools .icon-btn{width:38px;height:38px}
+  .header-actions .icon-btn{width:31px}
+  .header-sub{display:none}
+  .composer{gap:4px;padding-left:6px;padding-right:6px}
+  .attach-btn,.voice-btn,.send-btn{flex-basis:36px;width:36px;height:38px}
+}
